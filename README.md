@@ -1,101 +1,137 @@
-# InnerTune
+# AadiTune
 
-<img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" height="72">
+<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" height="72">
 
-A Material 3 YouTube Music client for Android
+A premium, free and open-source music streaming client for Android — a
+modern Material 3 YouTube Music front-end with a violet AMOLED theme,
+synchronized lyrics, offline caching and Android Auto support.
 
-[![Latest release](https://img.shields.io/github/v/release/z-huang/InnerTune?include_prereleases)](https://github.com/z-huang/music/releases)
-[![License](https://img.shields.io/github/license/z-huang/InnerTune)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/z-huang/InnerTune/total)](https://github.com/z-huang/InnerTune/releases)
-[![Translation](https://hosted.weblate.org/widget/innertune/svg-badge.svg)](https://hosted.weblate.org/engage/innertune/)
+**AadiTune is a fork of [InnerTune](https://github.com/z-huang/InnerTune)**
+by Zion Huang, openly developed by **Agastya Tomar**
+([@agastyatomar](https://github.com/agastyatomar)).
 
-[<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80">](https://github.com/z-huang/InnerTune/releases/latest)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/com.zionhuang.music)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="80">](https://apt.izzysoft.de/fdroid/index/apk/com.zionhuang.music)
-
-
-[Compare versions](https://github.com/z-huang/InnerTune/wiki/App-Versions)
+[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Android-green)
+![Android](https://img.shields.io/badge/min%20sdk-24-green)
 
 ## Features
 
-- Play songs from YT/YT Music without ads
-- Background playback
-- Search songs, videos, albums, and playlists from YouTube Music
-- Login support
+- Play songs from YouTube / YouTube Music without ads
+- Background playback with a media notification and lock-screen controls
+- Search songs, videos, albums, artists and playlists from YouTube Music
+- Home screen with trending / newly released music (where the source permits)
+- Personalized quick picks (requires login for personalization)
+- Library management: songs, albums, artists, playlists, favorites
+- Queue management: reorder, jump, add to next
 - Cache and download songs for offline playback
-- Synchronized lyrics
-- Lyrics translator
-- Skip silence
-- Audio normalization
-- Adjust tempo/pitch
-- Dynamic theme
+- Synchronized lyrics with follow-the-song highlighting
+- Audio normalization, skip silence, tempo / pitch control
+- Dynamic theme, dark AMOLED (pure black) mode, violet accent
 - Android Auto support
-- Personalized quick picks
 - Discord Rich Presence support
 
 ## Screenshots
 
-<p float="left">
-  <img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/fastlane/metadata/android/en-US/images/phoneScreenshots/01.png" width="200" />
-  <img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/fastlane/metadata/android/en-US/images/phoneScreenshots/02.png" width="200" />
-  <img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/fastlane/metadata/android/en-US/images/phoneScreenshots/03.png" width="200" />
-</p>
-<p float="left">
-  <img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/fastlane/metadata/android/en-US/images/phoneScreenshots/04.png" width="200" />
-  <img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/fastlane/metadata/android/en-US/images/phoneScreenshots/05.png" width="200" />
-</p>
+| Home | Player | Library |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/home.png) | ![Player](docs/screenshots/player.png) | ![Library](docs/screenshots/library.png) |
 
-> [!WARNING]
->
->If you're in a region where YouTube Music is not supported, you won't be able to use this app
-***unless*** you have a proxy or VPN to connect to a YTM supported region.
+> *Placeholders — replace `docs/screenshots/*.png` with real captures.*
 
-## FAQ
+> **Note:** If you are in a region where YouTube Music is not available, the
+> backing service is unreachable unless you route traffic through a proxy or
+> VPN to a supported region (the app includes a proxy setting).
 
-### Q: How to scrobble music to LastFM, LibreFM, ListenBrainz or GNU FM?
+## Tech stack
 
-Use other music scrobbler apps. I
-recommend [Pano Scrobbler](https://play.google.com/store/apps/details?id=com.arn.scrobble).
+- Kotlin 2.0 + Jetpack Compose (Material 3)
+- Media3 / ExoPlayer for playback and background service
+- Room database, DataStore preferences, Hilt dependency injection
+- Coil image loading, Ktor HTTP client
+- `innertube` module: unopinionated YouTube Music API wrapper (upstream InnerTune code)
+- `lrclib` / `kugou`: lyrics providers, `kizzy`: Discord RPC
+- `material-color-utilities`: Material You dynamic color generation
 
-### Q: Why InnerTune isn't showing in Android Auto?
+## Build
 
-1. Go to Android Auto's settings and tap multiple times on the version in the bottom to enable
-   developer settings
-2. In the three dots menu at the top-right of the screen, click "Developer settings"
-3. Enable "Unknown sources"
+Requirements: JDK 17 (Temurin/OpenJDK 17), Android SDK with `platforms;android-35`
+and `build-tools;35.0.0` (AGP downloads the rest).
 
-## Translation
+```bash
+# debug build (full flavor incl. Firebase hooks, needs google-services.json)
+./gradlew assembleFullDebug
 
-If you'd like to help translate InnerTune, check out [our project in Weblate!](https://hosted.weblate.org/engage/innertune/)
+# release build without Firebase, no google-services.json needed (recommended)
+./gradlew assembleFossRelease
+# → app/build/outputs/apk/foss/release/app-foss-release.apk
+```
 
-> [!TIP]
-> Preferably do not use pull requests/modify files yourself, if you can. Prefer Weblate when possible. 
-> Doing so may cause merging issues, and may end up becoming unmergeable.
-> It's also likely that other people have also gone and helped with the translation process of the language you want to update, but it hasn't been merged yet.
+`./gradlew` may need `sh gradlew` on filesystems that drop exec bits.
+Signing: release builds are unsigned unless the following environment variables
+are set (no credentials are committed to this repository):
 
-[![Translation status](https://hosted.weblate.org/widget/innertune/multi-auto.svg)](https://hosted.weblate.org/engage/innertune/)
+- `AADITUNE_KEYSTORE_FILE`, `AADITUNE_KEYSTORE_PASSWORD`,
+  `AADITUNE_KEY_ALIAS`, `AADITUNE_KEY_PASSWORD`
 
-Thank you for helping make InnerTune more accessible to people *worldwide!*
+CI builds the APK automatically on every push/PR (see
+`.github/workflows/android-build.yml`) and attaches release APKs on `v*` tags.
 
-## Donate
+## Installation
 
-If you like InnerTune, you're welcome to send a donation. Donations will support the development,
-including bug fixes and new features.
+Download the latest APK from the
+[Releases page](https://github.com/agastyatomar/AadiTune/releases):
 
-<a href="https://liberapay.com/zionhuang"><img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/assets/liberapay.png" alt="Liberapay" height="60" ></a>
-<a href="https://www.buymeacoffee.com/zionhuang"><img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/assets/buymeacoffee.png" alt="Liberapay" height="60" ></a>
+- `*-foss-debug.apk` — **installable** debug build, self-signed by CI
+  (auto-generated throwaway key, app id `com.agastyatomar.aaditune.debug`).
+- `*-foss-release-unsigned.apk` — clean release build; unsigned, so it cannot
+  be sideloaded until release signing secrets are configured in the repo.
 
-## Credit
+Allow "Install unknown apps" for your file manager / browser if sideloading.
+FOSS builds contain no Firebase — recommended.
 
-I want to give credit to [vfsfitvnm/ViMusic](https://github.com/vfsfitvnm/ViMusic) for being an
-example of Jetpack Compose music player. It helped me a lot on my way to learn Compose and
-Android development.
+## Troubleshooting
+
+- **No sound / network error:** check regional availability; set a proxy under
+  Settings → Content → Proxy.
+- **App won't build:** ensure JDK **17** and `ANDROID_HOME` set; run
+  `./gradlew --stop` and retry.
+- **Offline songs missing:** downloads live in app-private storage;
+  "Clear downloads" in Settings → Storage removes them permanently.
+- **Android Auto not showing the app:** enable "Unknown sources" inside
+  Android Auto developer settings.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+See [SECURITY.md](SECURITY.md).
+
+## Attribution
+
+- AadiTune is based on **[InnerTune](https://github.com/z-huang/InnerTune)** by Zion Huang — thank you for the excellent base! Upstream logo, UI ideas and InnerTune-era strings were replaced or rewritten for this fork.
+- Influenced by [ViMusic](https://github.com/vfsfitvnm/ViMusic) (Compose music player examples).
+- [KuGou](https://www.kugou.com) & [LRCLIB](https://lrclib.net) lyrics providers,
+  [kizzy](https://github.com/dead8309/kizzy) Discord RPC, and Google's
+  [material-color-utilities](https://github.com/material-foundation/material-color-utilities).
 
 ## Disclaimer
 
-This project and its contents are not affiliated with, funded, authorized, endorsed by, or in any
-way associated with YouTube, Google LLC, Innertune Media Inc., or any of its affiliates and
-subsidiaries.
+This project and its contents are not affiliated with, funded, authorized,
+endorsed by, or in any way associated with YouTube, Google LLC, or any of its
+affiliates and subsidiaries. Any trademark, service mark, trade name, or other
+intellectual property rights used in this project are owned by the respective
+owners.
 
-Any trademark, service mark, trade name, or other intellectual property rights used in this project
-are owned by the respective owners.
+## License
+
+Released under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
+
+    Copyright (C) 2023-2024  Zion Huang
+    Copyright (C) 2026       Agastya Tomar
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
