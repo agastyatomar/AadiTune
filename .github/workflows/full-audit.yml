@@ -1,0 +1,63 @@
+name: NovaTune full audit
+
+on:
+  push:
+    branches:
+      - test/novatune-full-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: novatune-full-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Run unit tests (blocking)
+        run: sh gradlew :app:testFossDebugUnitTest :kugou:test :innertube:test --no-configuration-cache
+
+      - name: Run Android lint (blocking)
+        run: sh gradlew :app:lintFoss --no-configuration-cache
+
+      - name: Build FOSS debug and release APKs
+        run: sh gradlew assembleFossDebug assembleFossRelease --no-configuration-cache
+
+      - name: Verify debug APK exists and is non-empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/foss/debug -name '*.apk' -type f | head -n 1)"
+          test -n "$apk"
+          test -s "$apk"
+          echo "Built debug APK: $apk"
+          sha256sum "$apk"
+
+      - name: Upload APKs for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaTune-full-audit-apks
+          path: |
+            app/build/outputs/apk/foss/debug/*.apk
+            app/build/outputs/apk/foss/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
