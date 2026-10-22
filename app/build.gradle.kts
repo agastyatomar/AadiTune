@@ -38,10 +38,10 @@ android {
             // Optional release signing: provide credentials via environment
             // variables or a gradle.properties file; when absent the APK is
             // produced unsigned (CI builds are signed with a debug key).
-            val ksFile = System.getenv("AADITUNE_KEYSTORE_FILE")
-            val storePass = System.getenv("AADITUNE_KEYSTORE_PASSWORD")
-            val keyAlias = System.getenv("AADITUNE_KEY_ALIAS")
-            val keyPass = System.getenv("AADITUNE_KEY_PASSWORD")
+            val ksFile = System.getenv("AADITUNE_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+            val storePass = System.getenv("AADITUNE_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+            val keyAlias = System.getenv("AADITUNE_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+            val keyPass = System.getenv("AADITUNE_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
             if (ksFile != null && storePass != null && keyAlias != null && keyPass != null) {
                 signingConfigs.create("ciRelease") {
                     storeFile = file(ksFile)
