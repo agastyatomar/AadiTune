@@ -82,9 +82,11 @@ jobs:
           echo "Found APK: $SRC"
           BASE=$(basename "$SRC")
           if echo "$BASE" | grep -q "unsigned"; then
-            DST="AadiTune-1.0.0-foss-release-unsigned.apk"
+            VNAME=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+            DST="AadiTune-${VNAME}-foss-release-unsigned.apk"
           else
-            DST="AadiTune-1.0.0-foss-release.apk"
+            VNAME=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          DST="AadiTune-${VNAME}-foss-release.apk"
           fi
           cp "$SRC" "$DST"
           echo "apk=$DST" >> "$GITHUB_OUTPUT"
@@ -97,7 +99,8 @@ jobs:
         run: |
           SRC=$(find app/build/outputs/apk/foss/debug -name "*.apk" | head -1)
           [ -n "$SRC" ] || { echo "No debug APK produced"; ls -R app/build/outputs; exit 1; }
-          DST="AadiTune-1.0.0-foss-debug.apk"
+          VNAME=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          DST="AadiTune-${VNAME}-foss-debug.apk"
           cp "$SRC" "$DST"
           echo "apk=$DST" >> "$GITHUB_OUTPUT"
 
@@ -118,13 +121,13 @@ jobs:
             ${{ steps.apk.outputs.apk }}
             ${{ steps.apkdebug.outputs.apk }}
           body: |
-            **AadiTune v1.0.0** — free & open-source music streaming for Android.
+            **AadiTune (latest CI build)** — free & open-source music streaming for Android.
 
-            - `AadiTune-1.0.0-foss-release-unsigned.apk` is the clean release build.
+            - `AadiTune-${AMPVER}-foss-release-unsigned.apk` is the clean release build.
               It is **unsigned** (no signing secrets are stored in this repository), so
               it cannot be sideloaded directly. This is the build to use after adding
               release signing secrets (`AADITUNE_KEYSTORE*`) to the repository.
-            - `AadiTune-1.0.0-foss-debug.apk` is an installable FOSS debug build,
+            - `AadiTune-*-foss-debug.apk` is an installable FOSS debug build,
               auto-signed by CI with a throwaway debug key (`com.agastyatomar.aaditune.debug`).
               Fine for testing; expect to uninstall before a signed release install.
           fail_on_unmatched_files: true

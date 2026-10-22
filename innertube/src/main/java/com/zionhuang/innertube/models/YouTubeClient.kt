@@ -25,28 +25,29 @@ data class YouTubeClient(
     companion object {
         private const val REFERER_YOUTUBE_MUSIC = "https://music.youtube.com/"
 
-        private const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36"
+        private const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         private const val USER_AGENT_ANDROID = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Mobile Safari/537.36"
-        private const val USER_AGENT_IOS = "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)"
+        private const val USER_AGENT_IOS = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
+        private const val USER_AGENT_ANDROID_VR = "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12; eureka-user Build/SQ3A.220605.009.A1) gzip"
 
         val ANDROID_MUSIC = YouTubeClient(
             clientName = "ANDROID_MUSIC",
-            clientVersion = "5.01",
+            clientVersion = "7.27.52",
             api_key = "AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI",
             userAgent = USER_AGENT_ANDROID
         )
 
         val ANDROID = YouTubeClient(
             clientName = "ANDROID",
-            clientVersion = "17.13.3",
+            clientVersion = "19.16.38",
             api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
             userAgent = USER_AGENT_ANDROID,
         )
 
         val WEB = YouTubeClient(
             clientName = "WEB",
-            clientVersion = "2.2021111",
-            api_key = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX3",
+            clientVersion = "2.20250310.01.00",
+            api_key = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30",
             userAgent = USER_AGENT_WEB
         )
 
@@ -67,10 +68,21 @@ data class YouTubeClient(
 
         val IOS = YouTubeClient(
             clientName = "IOS",
-            clientVersion = "19.29.1",
+            clientVersion = "20.10.4",
             api_key = "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
             userAgent = USER_AGENT_IOS,
-            osVersion = "17.5.1.21F90",
+            osVersion = "18.3.2.21D648c",
+        )
+
+        /**
+         * Android VR client: does not require attestation/PoToken and still
+         * returns direct download URLs for music content.
+         */
+        val ANDROID_VR = YouTubeClient(
+            clientName = "ANDROID_VR",
+            clientVersion = "1.62.27",
+            api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+            userAgent = USER_AGENT_ANDROID_VR
         )
     }
 }

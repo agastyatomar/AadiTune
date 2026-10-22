@@ -13,6 +13,7 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_MUSIC
+import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_VR
 import com.zionhuang.innertube.models.YouTubeClient.Companion.IOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB
@@ -436,6 +437,11 @@ object YouTube {
             if (playerResponse.playabilityStatus.status == "OK") {
                 return@runCatching playerResponse
             }
+        }
+        // ANDROID_VR does not require attribution/attestation tokens and serves direct stream URLs.
+        playerResponse = innerTube.player(ANDROID_VR, videoId, playlistId).body<PlayerResponse>()
+        if (playerResponse.playabilityStatus.status == "OK") {
+            return@runCatching playerResponse
         }
         playerResponse = innerTube.player(IOS, videoId, playlistId).body<PlayerResponse>()
         if (playerResponse.playabilityStatus.status == "OK") {
