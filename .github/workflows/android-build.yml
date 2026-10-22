@@ -1,0 +1,104 @@
+name: Android build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore:
+      - 'docs/screenshots/**'
+      - 'fastlane/**'
+      - 'assets/**'
+      - '.github/**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle caching
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare release signing (optional)
+        id: signing
+        run: |
+          if [ -n "${{ secrets.AADITUNE_KEYSTORE }}" ]; then
+            echo "${{ secrets.AADITUNE_KEYSTORE }}" | base64 -d > ci-release.jks
+            {
+              echo "keystore=$(pwd)/ci-release.jks"
+              echo "storepass=${{ secrets.AADITUNE_KEYSTORE_PASSWORD }}"
+              echo "alias=${{ secrets.AADITUNE_KEY_ALIAS }}"
+              echo "keypass=${{ secrets.AADITUNE_KEY_PASSWORD }}"
+            } >> "$GITHUB_OUTPUT"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No AADITUNE_KEYSTORE secret provided - building unsigned release APK."
+          fi
+
+      - name: Unit tests (innertube + kugou, non-blocking)
+        if: github.event_name != 'pull_request'
+        run: sh gradlew :kugou:test :innertube:test --no-configuration-cache
+        continue-on-error: true
+
+      - name: Lint
+        run: sh gradlew :app:lintFoss --no-configuration-cache
+        continue-on-error: true
+
+      - name: Build release APK
+        env:
+          AADITUNE_KEYSTORE_FILE: ${{ steps.signing.outputs.keystore }}
+          AADITUNE_KEYSTORE_PASSWORD: ${{ steps.signing.outputs.storepass }}
+          AADITUNE_KEY_ALIAS: ${{ steps.signing.outputs.alias }}
+          AADITUNE_KEY_PASSWORD: ${{ steps.signing.outputs.keypass }}
+        run: sh gradlew assembleFossRelease --no-configuration-cache
+
+      - name: Rename APK
+        id: apk
+        run: |
+          SRC="app/build/outputs/apk/foss/release/app-foss-release.apk"
+          DST="AadiTune-foss-release.apk"
+          if [ "${{ steps.signing.outputs.signed }}" != "true" ] && [ -f "$SRC" ]; then
+            # unsigned APKs can't be installed; emit explicit name
+            DST="AadiTune-foss-release-unsigned.apk"
+          fi
+          cp "$SRC" "$DST"
+          echo "apk=$DST" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AadiTune-APK
+          path: ${{ steps.apk.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Publish release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk.outputs.apk }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
