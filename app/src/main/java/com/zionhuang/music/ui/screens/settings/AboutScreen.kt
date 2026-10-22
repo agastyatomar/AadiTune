@@ -89,44 +89,8 @@ fun AboutScreen(
                 color = MaterialTheme.colorScheme.secondary
             )
 
-            Spacer(Modifier.width(4.dp))
-
-            Text(
-                text = BuildConfig.FLAVOR.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = CircleShape
-                    )
-                    .padding(
-                        horizontal = 6.dp,
-                        vertical = 2.dp
-                    )
-            )
-
-            if (BuildConfig.DEBUG) {
-                Spacer(Modifier.width(4.dp))
-
-                Text(
-                    text = "DEBUG",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.secondary,
-                            shape = CircleShape
-                        )
-                        .padding(
-                            horizontal = 6.dp,
-                            vertical = 2.dp
-                        )
-                )
-            }
         }
+
 
         Spacer(Modifier.height(4.dp))
 
@@ -139,7 +103,7 @@ fun AboutScreen(
         Spacer(Modifier.height(4.dp))
 
         Text(
-            text = "Open-source music streaming, licensed under GPL-3.0. Based on InnerTune.",
+            text = "Open-source music streaming, licensed under GPL-3.0.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 24.dp),
@@ -154,15 +118,6 @@ fun AboutScreen(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.github),
-                    contentDescription = null
-                )
-            }
-
-            IconButton(
-                onClick = { uriHandler.openUri("https://github.com/z-huang/InnerTune") }
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.info),
                     contentDescription = null
                 )
             }

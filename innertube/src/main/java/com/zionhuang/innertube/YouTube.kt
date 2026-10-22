@@ -438,12 +438,13 @@ object YouTube {
                 return@runCatching playerResponse
             }
         }
-        // ANDROID_VR does not require attribution/attestation tokens and serves direct stream URLs.
-        playerResponse = innerTube.player(ANDROID_VR, videoId, playlistId).body<PlayerResponse>()
+        // IOS client serves full-length streams for most content without extra tokens.
+        playerResponse = innerTube.player(IOS, videoId, playlistId).body<PlayerResponse>()
         if (playerResponse.playabilityStatus.status == "OK") {
             return@runCatching playerResponse
         }
-        playerResponse = innerTube.player(IOS, videoId, playlistId).body<PlayerResponse>()
+        // ANDROID_VR does not require attribution/attestation tokens and serves direct stream URLs.
+        playerResponse = innerTube.player(ANDROID_VR, videoId, playlistId).body<PlayerResponse>()
         if (playerResponse.playabilityStatus.status == "OK") {
             return@runCatching playerResponse
         }

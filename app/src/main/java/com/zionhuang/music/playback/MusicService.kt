@@ -520,6 +520,10 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onPlaybackStateChanged(@Player.State playbackState: Int) {
+        if (playbackState == STATE_READY) {
+            // Stream worked; reset its retry counter.
+            player.currentMediaItem?.mediaId?.let { streamRetryAttempts.remove(it) }
+        }
         if (playbackState == STATE_IDLE) {
             currentQueue = EmptyQueue
             player.shuffleModeEnabled = false
@@ -563,12 +567,27 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /** Per-mediaId retry counter for stream errors (expired/403 stream URLs cause mid-play stops). */
+    private val streamRetryAttempts = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
     override fun onPlayerError(error: PlaybackException) {
         // Purge the cached stream URL / partially cached audio of the failing item so that
         // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
-        player.currentMediaItem?.mediaId?.let { mediaId ->
-            songUrlCache.remove(mediaId)
-            runCatching { playerCache.removeResource(mediaId) }
+        val mediaId = player.currentMediaItem?.mediaId
+        mediaId?.let { id ->
+            songUrlCache.remove(id)
+            runCatching { playerCache.removeResource(id) }
+            // Silently retry the same item with a fresh stream URL a few times before giving up.
+            val attempts = streamRetryAttempts[id] ?: 0
+            if (attempts < 2) {
+                streamRetryAttempts[id] = attempts + 1
+                runCatching {
+                    player.prepare()
+                    player.playWhenReady = true
+                }
+                return
+            }
+            streamRetryAttempts.remove(id)
         }
         if (dataStore.get(AutoSkipNextOnErrorKey, false) &&
             isInternetAvailable(this) &&
@@ -592,6 +611,16 @@ class MusicService : MediaLibraryService(),
                             OkHttpDataSource.Factory(
                                 OkHttpClient.Builder()
                                     .proxy(YouTube.proxy)
+                                    .addInterceptor { chain ->
+                                        val req = chain.request()
+                                        if (req.header("User-Agent") == null) {
+                                            chain.proceed(
+                                                req.newBuilder()
+                                                    .header("User-Agent", "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)")
+                                                    .build()
+                                            )
+                                        } else chain.proceed(req)
+                                    }
                                     .build()
                             )
                         )
