@@ -520,7 +520,7 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onPlaybackStateChanged(@Player.State playbackState: Int) {
-        if (playbackState == STATE_READY) {
+        if (playbackState == Player.STATE_READY) {
             // Stream worked; reset its retry counter.
             player.currentMediaItem?.mediaId?.let { streamRetryAttempts.remove(it) }
         }
