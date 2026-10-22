@@ -20,10 +20,10 @@ import com.google.material.color.hct.Hct
 import com.google.material.color.scheme.SchemeTonalSpot
 import com.google.material.color.score.Score
 
-val DefaultThemeColor = Color(0xFF4285F4)
+val DefaultThemeColor = Color(0xFF7C3AED)
 
 @Composable
-fun InnerTuneTheme(
+fun AadiTuneTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     pureBlack: Boolean = false,
     themeColor: Color = DefaultThemeColor,

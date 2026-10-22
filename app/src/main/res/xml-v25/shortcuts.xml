@@ -7,8 +7,8 @@
         android:shortcutShortLabel="@string/search">
         <intent
             android:targetClass="com.zionhuang.music.MainActivity"
-            android:targetPackage="com.zionhuang.music"
-            android:action="com.zionhuang.music.action.SEARCH" />
+            android:targetPackage="com.agastyatomar.aaditune"
+            android:action="com.agastyatomar.aaditune.action.SEARCH" />
     </shortcut>
     <shortcut
         android:shortcutId="songs"
@@ -17,8 +17,8 @@
         android:shortcutShortLabel="@string/songs">
         <intent
             android:targetClass="com.zionhuang.music.MainActivity"
-            android:targetPackage="com.zionhuang.music"
-            android:action="com.zionhuang.music.action.SONGS" />
+            android:targetPackage="com.agastyatomar.aaditune"
+            android:action="com.agastyatomar.aaditune.action.SONGS" />
     </shortcut>
     <shortcut
         android:shortcutId="albums"
@@ -27,8 +27,8 @@
         android:shortcutShortLabel="@string/albums">
         <intent
             android:targetClass="com.zionhuang.music.MainActivity"
-            android:targetPackage="com.zionhuang.music"
-            android:action="com.zionhuang.music.action.ALBUMS" />
+            android:targetPackage="com.agastyatomar.aaditune"
+            android:action="com.agastyatomar.aaditune.action.ALBUMS" />
     </shortcut>
     <shortcut
         android:shortcutId="playlists"
@@ -37,7 +37,7 @@
         android:shortcutShortLabel="@string/playlists">
         <intent
             android:targetClass="com.zionhuang.music.MainActivity"
-            android:targetPackage="com.zionhuang.music"
-            android:action="com.zionhuang.music.action.PLAYLISTS" />
+            android:targetPackage="com.agastyatomar.aaditune"
+            android:action="com.agastyatomar.aaditune.action.PLAYLISTS" />
     </shortcut>
 </shortcuts>

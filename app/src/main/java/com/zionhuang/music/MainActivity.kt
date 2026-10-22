@@ -134,7 +134,7 @@ import com.zionhuang.music.ui.screens.settings.DarkMode
 import com.zionhuang.music.ui.screens.settings.NavigationTab
 import com.zionhuang.music.ui.theme.ColorSaver
 import com.zionhuang.music.ui.theme.DefaultThemeColor
-import com.zionhuang.music.ui.theme.InnerTuneTheme
+import com.zionhuang.music.ui.theme.AadiTuneTheme
 import com.zionhuang.music.ui.theme.extractThemeColor
 import com.zionhuang.music.ui.utils.appBarScrollBehavior
 import com.zionhuang.music.ui.utils.backToMain
@@ -234,7 +234,7 @@ class MainActivity : ComponentActivity() {
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
-            val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
+            val pureBlack by rememberPreference(PureBlackKey, defaultValue = true)
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
                 if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            InnerTuneTheme(
+            AadiTuneTheme(
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 themeColor = themeColor
@@ -805,10 +805,10 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        const val ACTION_SEARCH = "com.zionhuang.music.action.SEARCH"
-        const val ACTION_SONGS = "com.zionhuang.music.action.SONGS"
-        const val ACTION_ALBUMS = "com.zionhuang.music.action.ALBUMS"
-        const val ACTION_PLAYLISTS = "com.zionhuang.music.action.PLAYLISTS"
+        const val ACTION_SEARCH = "com.agastyatomar.aaditune.action.SEARCH"
+        const val ACTION_SONGS = "com.agastyatomar.aaditune.action.SONGS"
+        const val ACTION_ALBUMS = "com.agastyatomar.aaditune.action.ALBUMS"
+        const val ACTION_PLAYLISTS = "com.agastyatomar.aaditune.action.PLAYLISTS"
     }
 }
 

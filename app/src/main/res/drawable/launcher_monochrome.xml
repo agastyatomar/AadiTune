@@ -4,45 +4,21 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX=".7"
-        android:scaleY=".7"
-        android:translateX="16.2"
-        android:translateY="16.2">
+        android:scaleX=".62"
+        android:scaleY=".62"
+        android:translateX="20.5"
+        android:translateY="20.5">
         <path
-            android:fillColor="#7F000000"
-            android:pathData="M67.4,23.96l13.79,-2.43a6,6 0,0 1,2.08 11.82l-13.79,2.43z"
+            android:fillColor="#000000"
+            android:pathData="M48.5,68 V30.5 a2.5,2.5 0 0 1 5,0 V68 z"
             android:strokeWidth="0" />
         <path
             android:fillColor="#000000"
-            android:pathData="M20,76a10,10 0,1 0,20 0a10,10 0,1 0,-20 0z"
+            android:pathData="M43,57.5 a10.5,10.5 0 1,0 0,21 a10.5,10.5 0 1,0 0,-21 z"
             android:strokeWidth="0" />
         <path
             android:fillColor="#000000"
-            android:pathData="M34,36h6v40h-6z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M53.73,26.47l13.79,-2.43l2.08,11.82l-13.79,2.43z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M34,36a6,6 0,1 0,12 0a6,6 0,1 0,-12 0z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M49,32.33a6,6 0,1 0,12 0a6,6 0,1 0,-12 0z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M54,70a10,10 0,1 0,20 0a10,10 0,1 0,-20 0z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M68,30h6v40h-6z"
-            android:strokeWidth="0" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M62,30a6,6 0,1 0,12 0a6,6 0,1 0,-12 0z"
+            android:pathData="M53.5,28 C63.5,32.5 69,41.5 65.5,53.5 C63,44.5 58.5,40 53.5,39 Z"
             android:strokeWidth="0" />
     </group>
 </vector>

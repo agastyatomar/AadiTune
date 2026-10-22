@@ -75,7 +75,7 @@ fun AboutScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Text(
-                text = "InnerTune",
+                text = "AadiTune",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -131,16 +131,26 @@ fun AboutScreen(
         Spacer(Modifier.height(4.dp))
 
         Text(
-            text = "by Zion Huang",
+            text = "by Agastya Tomar",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.secondary
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = "Open-source music streaming, licensed under GPL-3.0. Based on InnerTune.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 24.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
         Spacer(Modifier.height(8.dp))
 
         Row {
             IconButton(
-                onClick = { uriHandler.openUri("https://github.com/z-huang/InnerTune") }
+                onClick = { uriHandler.openUri("https://github.com/agastyatomar/AadiTune") }
             ) {
                 Icon(
                     painter = painterResource(R.drawable.github),
@@ -149,19 +159,10 @@ fun AboutScreen(
             }
 
             IconButton(
-                onClick = { uriHandler.openUri("https://liberapay.com/zionhuang") }
+                onClick = { uriHandler.openUri("https://github.com/z-huang/InnerTune") }
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.liberapay),
-                    contentDescription = null
-                )
-            }
-
-            IconButton(
-                onClick = { uriHandler.openUri("https://www.buymeacoffee.com/zionhuang") }
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.buymeacoffee),
+                    painter = painterResource(R.drawable.info),
                     contentDescription = null
                 )
             }

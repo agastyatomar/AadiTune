@@ -22,11 +22,11 @@ android {
     compileSdk = 35
     buildToolsVersion = "35.0.0"
     defaultConfig {
-        applicationId = "com.zionhuang.music"
+        applicationId = "com.agastyatomar.aaditune"
         minSdk = 24
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.5.10"
+        versionCode = 1
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -35,6 +35,22 @@ android {
             isShrinkResources = true
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Optional release signing: provide credentials via environment
+            // variables or a gradle.properties file; when absent the APK is
+            // produced unsigned (CI builds are signed with a debug key).
+            val ksFile = System.getenv("AADITUNE_KEYSTORE_FILE")
+            val storePass = System.getenv("AADITUNE_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("AADITUNE_KEY_ALIAS")
+            val keyPass = System.getenv("AADITUNE_KEY_PASSWORD")
+            if (ksFile != null && storePass != null && keyAlias != null && keyPass != null) {
+                signingConfigs.create("ciRelease") {
+                    storeFile = file(ksFile)
+                    storePassword = storePass
+                    this.keyAlias = keyAlias
+                    keyPassword = keyPass
+                }
+                signingConfig = signingConfigs.getByName("ciRelease")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
