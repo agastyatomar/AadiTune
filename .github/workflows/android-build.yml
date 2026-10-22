@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -89,18 +89,44 @@ jobs:
           cp "$SRC" "$DST"
           echo "apk=$DST" >> "$GITHUB_OUTPUT"
 
+      - name: Build debug APK (auto-signs with runner's debug key)
+        run: sh gradlew assembleFossDebug --no-configuration-cache
+
+      - name: Rename debug APK
+        id: apkdebug
+        run: |
+          SRC=$(find app/build/outputs/apk/foss/debug -name "*.apk" | head -1)
+          [ -n "$SRC" ] || { echo "No debug APK produced"; ls -R app/build/outputs; exit 1; }
+          DST="AadiTune-1.0.0-foss-debug.apk"
+          cp "$SRC" "$DST"
+          echo "apk=$DST" >> "$GITHUB_OUTPUT"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: AadiTune-APK
-          path: ${{ steps.apk.outputs.apk }}
+          path: |
+            ${{ steps.apk.outputs.apk }}
+            ${{ steps.apkdebug.outputs.apk }}
           if-no-files-found: error
 
       - name: Publish release (version tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.apk.outputs.apk }}
+          files: |
+            ${{ steps.apk.outputs.apk }}
+            ${{ steps.apkdebug.outputs.apk }}
+          body: |
+            **AadiTune v1.0.0** — free & open-source music streaming for Android.
+
+            - `AadiTune-1.0.0-foss-release-unsigned.apk` is the clean release build.
+              It is **unsigned** (no signing secrets are stored in this repository), so
+              it cannot be sideloaded directly. This is the build to use after adding
+              release signing secrets (`AADITUNE_KEYSTORE*`) to the repository.
+            - `AadiTune-1.0.0-foss-debug.apk` is an installable FOSS debug build,
+              auto-signed by CI with a throwaway debug key (`com.agastyatomar.aaditune.debug`).
+              Fine for testing; expect to uninstall before a signed release install.
           fail_on_unmatched_files: true
           generate_release_notes: true
         env:
