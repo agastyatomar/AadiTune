@@ -108,6 +108,8 @@ import com.zionhuang.music.constants.NavigationBarAnimationSpec
 import com.zionhuang.music.constants.NavigationBarHeight
 import com.zionhuang.music.constants.PauseSearchHistoryKey
 import com.zionhuang.music.constants.PureBlackKey
+import com.zionhuang.music.constants.ThemeVariant
+import com.zionhuang.music.constants.ThemeVariantKey
 import com.zionhuang.music.constants.SearchSource
 import com.zionhuang.music.constants.SearchSourceKey
 import com.zionhuang.music.constants.StopMusicOnTaskClearKey
@@ -134,7 +136,7 @@ import com.zionhuang.music.ui.screens.settings.DarkMode
 import com.zionhuang.music.ui.screens.settings.NavigationTab
 import com.zionhuang.music.ui.theme.ColorSaver
 import com.zionhuang.music.ui.theme.DefaultThemeColor
-import com.zionhuang.music.ui.theme.AadiTuneTheme
+import com.zionhuang.music.ui.theme.NovaTuneTheme
 import com.zionhuang.music.ui.theme.extractThemeColor
 import com.zionhuang.music.ui.utils.appBarScrollBehavior
 import com.zionhuang.music.ui.utils.backToMain
@@ -235,6 +237,7 @@ class MainActivity : ComponentActivity() {
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
             val pureBlack by rememberPreference(PureBlackKey, defaultValue = true)
+            val themeVariant by rememberEnumPreference(ThemeVariantKey, defaultValue = ThemeVariant.TONAL_SPOT)
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
                 if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
@@ -267,10 +270,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            AadiTuneTheme(
+            NovaTuneTheme(
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
-                themeColor = themeColor
+                themeColor = themeColor,
+                themeVariant = themeVariant
             ) {
                 BoxWithConstraints(
                     modifier = Modifier

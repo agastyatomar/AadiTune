@@ -1,6 +1,6 @@
-# Contributing to AadiTune
+# Contributing to NovaTune
 
-Thank you for considering contributing to AadiTune! All contributions — issue
+Thank you for considering contributing to NovaTune! All contributions — issue
 reports, feature discussion and pull requests — are welcome. This project is
 GPL-3.0 licensed; by contributing, you agree your work is licensed under the
 same terms.

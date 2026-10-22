@@ -61,8 +61,6 @@ import com.zionhuang.music.constants.AudioQuality
 import com.zionhuang.music.constants.AudioQualityKey
 import com.zionhuang.music.constants.AutoLoadMoreKey
 import com.zionhuang.music.constants.AutoSkipNextOnErrorKey
-import com.zionhuang.music.constants.DiscordTokenKey
-import com.zionhuang.music.constants.EnableDiscordRPCKey
 import com.zionhuang.music.constants.HideExplicitKey
 import com.zionhuang.music.constants.MediaSessionConstants.CommandToggleLibrary
 import com.zionhuang.music.constants.MediaSessionConstants.CommandToggleLike
@@ -98,7 +96,6 @@ import com.zionhuang.music.playback.queues.Queue
 import com.zionhuang.music.playback.queues.YouTubeQueue
 import com.zionhuang.music.playback.queues.filterExplicit
 import com.zionhuang.music.utils.CoilBitmapLoader
-import com.zionhuang.music.utils.DiscordRPC
 import com.zionhuang.music.utils.dataStore
 import com.zionhuang.music.utils.enumPreference
 import com.zionhuang.music.utils.get
@@ -158,7 +155,7 @@ class MusicService : MediaLibraryService(),
 
     private lateinit var connectivityManager: ConnectivityManager
 
-    private val audioQuality by enumPreference(this, AudioQualityKey, AudioQuality.AUTO)
+    private val audioQuality by enumPreference(this, AudioQualityKey, AudioQuality.HIGH)
 
     private var currentQueue: Queue = EmptyQueue
     var queueTitle: String? = null
@@ -180,6 +177,9 @@ class MusicService : MediaLibraryService(),
     @PlayerCache
     lateinit var playerCache: SimpleCache
 
+    /** Stream URL cache: mediaId to (url, absolute expiry millis) */
+    private val songUrlCache = mutableMapOf<String, Pair<String, Long>>()
+
     @Inject
     @DownloadCache
     lateinit var downloadCache: SimpleCache
@@ -188,8 +188,6 @@ class MusicService : MediaLibraryService(),
     private lateinit var mediaSession: MediaLibrarySession
 
     private var isAudioEffectSessionOpened = false
-
-    private var discordRpc: DiscordRPC? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -257,11 +255,6 @@ class MusicService : MediaLibraryService(),
 
         currentSong.debounce(1000).collect(scope) { song ->
             updateNotification()
-            if (song != null) {
-                discordRpc?.updateSong(song)
-            } else {
-                discordRpc?.closeRPC()
-            }
         }
 
         combine(
@@ -304,23 +297,6 @@ class MusicService : MediaLibraryService(),
                 1f
             }
         }
-
-        dataStore.data
-            .map { it[DiscordTokenKey] to (it[EnableDiscordRPCKey] ?: true) }
-            .debounce(300)
-            .distinctUntilChanged()
-            .collect(scope) { (key, enabled) ->
-                if (discordRpc?.isRpcRunning() == true) {
-                    discordRpc?.closeRPC()
-                }
-                discordRpc = null
-                if (key != null && enabled) {
-                    discordRpc = DiscordRPC(this, key)
-                    currentSong.value?.let {
-                        discordRpc?.updateSong(it)
-                    }
-                }
-            }
 
         if (dataStore.get(PersistentQueueKey, true)) {
             runCatching {
@@ -588,6 +564,12 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onPlayerError(error: PlaybackException) {
+        // Purge the cached stream URL / partially cached audio of the failing item so that
+        // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
+        player.currentMediaItem?.mediaId?.let { mediaId ->
+            songUrlCache.remove(mediaId)
+            runCatching { playerCache.removeResource(mediaId) }
+        }
         if (dataStore.get(AutoSkipNextOnErrorKey, false) &&
             isInternetAvailable(this) &&
             player.hasNextMediaItem()
@@ -619,7 +601,6 @@ class MusicService : MediaLibraryService(),
             .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
@@ -630,12 +611,10 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { it.second < System.currentTimeMillis() }?.let {
+            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
-
-            // Check whether format exists so that users from older version can view format details
             // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
             val playerResponse = runBlocking(Dispatchers.IO) {
@@ -691,7 +670,7 @@ class MusicService : MediaLibraryService(),
             }
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-            songUrlCache[mediaId] = format.url!! to playerResponse.streamingData!!.expiresInSeconds * 1000L
+            songUrlCache[mediaId] = format.url!! to (System.currentTimeMillis() + playerResponse.streamingData!!.expiresInSeconds * 1000L)
             dataSpec.withUri(format.url!!.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
         }
     }
@@ -768,10 +747,6 @@ class MusicService : MediaLibraryService(),
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
         }
-        if (discordRpc?.isRpcRunning() == true) {
-            discordRpc?.closeRPC()
-        }
-        discordRpc = null
         mediaSession.release()
         player.removeListener(this)
         player.removeListener(sleepTimer)
@@ -783,7 +758,10 @@ class MusicService : MediaLibraryService(),
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        stopSelf()
+        // Keep playing if the user swipes the app away while music is running.
+        if (!player.isPlaying) {
+            stopSelf()
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession

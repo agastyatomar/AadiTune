@@ -47,10 +47,13 @@ import com.zionhuang.music.constants.DefaultOpenTabKey
 import com.zionhuang.music.constants.DynamicThemeKey
 import com.zionhuang.music.constants.GridCellSize
 import com.zionhuang.music.constants.GridCellSizeKey
+import com.zionhuang.music.constants.GlassBackgroundKey
 import com.zionhuang.music.constants.PlayerTextAlignmentKey
 import com.zionhuang.music.constants.PureBlackKey
 import com.zionhuang.music.constants.SliderStyle
 import com.zionhuang.music.constants.SliderStyleKey
+import com.zionhuang.music.constants.ThemeVariant
+import com.zionhuang.music.constants.ThemeVariantKey
 import com.zionhuang.music.ui.component.DefaultDialog
 import com.zionhuang.music.ui.component.EnumListPreference
 import com.zionhuang.music.ui.component.IconButton
@@ -71,6 +74,8 @@ fun AppearanceSettings(
     val (dynamicTheme, onDynamicThemeChange) = rememberPreference(DynamicThemeKey, defaultValue = true)
     val (darkMode, onDarkModeChange) = rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = true)
+    val (themeVariant, onThemeVariantChange) = rememberEnumPreference(ThemeVariantKey, defaultValue = ThemeVariant.TONAL_SPOT)
+    val (glassBackground, onGlassBackgroundChange) = rememberPreference(GlassBackgroundKey, defaultValue = true)
     val (playerTextAlignment, onPlayerTextAlignmentChange) = rememberEnumPreference(PlayerTextAlignmentKey, defaultValue = PlayerTextAlignment.CENTER)
     val (sliderStyle, onSliderStyleChange) = rememberEnumPreference(SliderStyleKey, defaultValue = SliderStyle.DEFAULT)
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberEnumPreference(DefaultOpenTabKey, defaultValue = NavigationTab.HOME)
@@ -213,6 +218,32 @@ fun AppearanceSettings(
                 onCheckedChange = onPureBlackChange
             )
         }
+
+        EnumListPreference(
+            title = { Text(stringResource(R.string.theme_variant)) },
+            icon = { Icon(painterResource(R.drawable.discover_tune), null) },
+            selectedValue = themeVariant,
+            onValueSelected = onThemeVariantChange,
+            valueText = {
+                when (it) {
+                    ThemeVariant.TONAL_SPOT -> stringResource(R.string.theme_variant_tonal_spot)
+                    ThemeVariant.VIBRANT -> stringResource(R.string.theme_variant_vibrant)
+                    ThemeVariant.EXPRESSIVE -> stringResource(R.string.theme_variant_expressive)
+                    ThemeVariant.CONTENT -> stringResource(R.string.theme_variant_content)
+                    ThemeVariant.NEUTRAL -> stringResource(R.string.theme_variant_neutral)
+                    ThemeVariant.MONOCHROME -> stringResource(R.string.theme_variant_monochrome)
+                    ThemeVariant.RAINBOW -> stringResource(R.string.theme_variant_rainbow)
+                    ThemeVariant.FRUIT_SALAD -> stringResource(R.string.theme_variant_fruit_salad)
+                }
+            }
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.glass_background)) },
+            icon = { Icon(painterResource(R.drawable.mood), null) },
+            checked = glassBackground,
+            onCheckedChange = onGlassBackgroundChange
+        )
 
         PreferenceGroupTitle(
             title = stringResource(R.string.player)

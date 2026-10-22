@@ -1,4 +1,4 @@
-# AadiTune
+# NovaTune
 
 <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" height="72">
 
@@ -6,7 +6,7 @@ A premium, free and open-source music streaming client for Android — a
 modern Material 3 YouTube Music front-end with a violet AMOLED theme,
 synchronized lyrics, offline caching and Android Auto support.
 
-**AadiTune is a fork of [InnerTune](https://github.com/z-huang/InnerTune)**
+**NovaTune is a fork of [InnerTune](https://github.com/z-huang/InnerTune)**
 by Zion Huang, openly developed by **Agastya Tomar**
 ([@agastyatomar](https://github.com/agastyatomar)).
 
@@ -79,7 +79,7 @@ CI builds the APK automatically on every push/PR (see
 ## Installation
 
 Download the latest APK from the
-[Releases page](https://github.com/agastyatomar/AadiTune/releases):
+[Releases page](https://github.com/agastyatomar/NovaTune/releases):
 
 - `*-foss-debug.apk` — **installable** debug build, self-signed by CI
   (auto-generated throwaway key, app id `com.agastyatomar.aaditune.debug`).
@@ -110,7 +110,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Attribution
 
-- AadiTune is based on **[InnerTune](https://github.com/z-huang/InnerTune)** by Zion Huang — thank you for the excellent base! Upstream logo, UI ideas and InnerTune-era strings were replaced or rewritten for this fork.
+- NovaTune is based on **[InnerTune](https://github.com/z-huang/InnerTune)** by Zion Huang — thank you for the excellent base! Upstream logo, UI ideas and InnerTune-era strings were replaced or rewritten for this fork.
 - Influenced by [ViMusic](https://github.com/vfsfitvnm/ViMusic) (Compose music player examples).
 - [KuGou](https://www.kugou.com) & [LRCLIB](https://lrclib.net) lyrics providers,
   [kizzy](https://github.com/dead8309/kizzy) Discord RPC, and Google's

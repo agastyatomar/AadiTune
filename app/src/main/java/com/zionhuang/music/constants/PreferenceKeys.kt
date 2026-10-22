@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
+val ThemeVariantKey = stringPreferencesKey("themeVariant")
+val GlassBackgroundKey = booleanPreferencesKey("glassBackground")
 val PlayerTextAlignmentKey = stringPreferencesKey("playerTextAlignment")
 val SliderStyleKey = stringPreferencesKey("sliderStyle")
 
@@ -53,11 +55,6 @@ val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 val DisableScreenshotKey = booleanPreferencesKey("disableScreenshot")
 
-val DiscordTokenKey = stringPreferencesKey("discordToken")
-val DiscordInfoDismissedKey = booleanPreferencesKey("discordInfoDismissed_v2")
-val DiscordUsernameKey = stringPreferencesKey("discordUsername")
-val DiscordNameKey = stringPreferencesKey("discordName")
-val EnableDiscordRPCKey = booleanPreferencesKey("discordRPCEnable")
 
 val SongSortTypeKey = stringPreferencesKey("songSortType")
 val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")

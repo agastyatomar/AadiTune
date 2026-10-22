@@ -123,7 +123,6 @@ fun HomeScreen(
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
-    val accountPlaylists by viewModel.accountPlaylists.collectAsState()
     val homePage by viewModel.homePage.collectAsState()
     val explorePage by viewModel.explorePage.collectAsState()
 
@@ -136,11 +135,6 @@ fun HomeScreen(
 
     val quickPicksLazyGridState = rememberLazyGridState()
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
-
-    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) {
-        "SAPISID" in parseCookieString(innerTubeCookie)
-    }
 
     val scope = rememberCoroutineScope()
     val lazylistState = rememberLazyListState()
@@ -350,17 +344,6 @@ fun HomeScreen(
                         onClick = { navController.navigate("stats") },
                         modifier = Modifier.weight(1f)
                     )
-
-                    if (isLoggedIn) {
-                        NavigationTile(
-                            title = stringResource(R.string.account),
-                            icon = R.drawable.person,
-                            onClick = {
-                                navController.navigate("account")
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                 }
             }
 
@@ -508,34 +491,6 @@ fun HomeScreen(
                     ) {
                         items(keepListening) {
                             localGridItem(it)
-                        }
-                    }
-                }
-            }
-
-            accountPlaylists?.takeIf { it.isNotEmpty() }?.let { accountPlaylists ->
-                item {
-                    NavigationTitle(
-                        title = stringResource(R.string.your_youtube_playlists),
-                        onClick = {
-                            navController.navigate("account")
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                item {
-                    LazyRow(
-                        contentPadding = WindowInsets.systemBars
-                            .only(WindowInsetsSides.Horizontal)
-                            .asPaddingValues(),
-                        modifier = Modifier.animateItem()
-                    ) {
-                        items(
-                            items = accountPlaylists,
-                            key = { it.id },
-                        ) { item ->
-                            ytGridItem(item)
                         }
                     }
                 }

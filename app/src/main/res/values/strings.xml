@@ -232,6 +232,16 @@
     <string name="dark_theme_off">Off</string>
     <string name="dark_theme_follow_system">Follow system</string>
     <string name="pure_black">Pure black</string>
+    <string name="theme_variant">Theme style</string>
+    <string name="theme_variant_tonal_spot">Classic</string>
+    <string name="theme_variant_vibrant">Vibrant</string>
+    <string name="theme_variant_expressive">Expressive</string>
+    <string name="theme_variant_content">Content</string>
+    <string name="theme_variant_neutral">Muted</string>
+    <string name="theme_variant_monochrome">Monochrome</string>
+    <string name="theme_variant_rainbow">Rainbow</string>
+    <string name="theme_variant_fruit_salad">Fruit salad</string>
+    <string name="glass_background">Aurora glass player</string>
     <string name="customize_navigation_tabs">Customize navigation tabs</string>
     <string name="player">Player</string>
     <string name="player_text_alignment">Player text alignment</string>
@@ -319,17 +329,16 @@
     <string name="backup_create_failed">Couldn\'t create backup</string>
     <string name="restore_failed">Failed to restore backup</string>
 
-    <string name="discord_integration">Discord Integration</string>
-    <string name="discord_information">AadiTune uses the KizzyRPC library to set your Discord account\'s status. This involves using the Discord Gateway connection, which may be considered a violation of Discord\'s TOS. However, there are no known cases of user accounts being suspended for this reason. Use at your own risk.\n\nAadiTune will only extract your token, and everything else is stored locally.</string>
     <string name="dismiss">Dismiss</string>
     <string name="options">Options</string>
     <string name="preview">Preview</string>
-    <string name="enable_discord_rpc">Enable Rich Presence</string>
 
     <string name="about">About</string>
     <string name="app_version">App version</string>
 
     <string name="new_version_available">New version available</string>
+    <string name="update_in_progress">Downloading update…</string>
+    <string name="update_failed">Update failed, check your connection</string>
     <string name="translation_models">Translation Models</string>
     <string name="clear_translation_models">Clear translation models</string>
 </resources>

@@ -75,7 +75,7 @@ fun AboutScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Text(
-                text = "AadiTune",
+                text = "NovaTune",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -150,7 +150,7 @@ fun AboutScreen(
 
         Row {
             IconButton(
-                onClick = { uriHandler.openUri("https://github.com/agastyatomar/AadiTune") }
+                onClick = { uriHandler.openUri("https://github.com/agastyatomar/NovaTune") }
             ) {
                 Icon(
                     painter = painterResource(R.drawable.github),

@@ -75,7 +75,3 @@
 -keep class com.github.houbb.opencc4j.** { *; }
 -dontwarn com.huaban.analysis.jieba.JiebaSegmenter
 
-# Keep Data data classes
--keep class com.my.kizzy.remote.** { <fields>; }
-# Keep Gateway data classes
--keep class com.my.kizzy.gateway.entities.** { <fields>; }

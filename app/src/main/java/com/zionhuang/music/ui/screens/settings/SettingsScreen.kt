@@ -1,5 +1,6 @@
 package com.zionhuang.music.ui.screens.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -15,8 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
@@ -26,6 +28,8 @@ import com.zionhuang.music.R
 import com.zionhuang.music.ui.component.IconButton
 import com.zionhuang.music.ui.component.PreferenceEntry
 import com.zionhuang.music.ui.utils.backToMain
+import com.zionhuang.music.utils.Updater
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +38,8 @@ fun SettingsScreen(
     scrollBehavior: TopAppBarScrollBehavior,
     latestVersionName: String,
 ) {
-    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Column(
         Modifier
@@ -69,11 +74,6 @@ fun SettingsScreen(
             onClick = { navController.navigate("settings/privacy") }
         )
         PreferenceEntry(
-            title = { Text(stringResource(R.string.discord_integration)) },
-            icon = { Icon(painterResource(R.drawable.discord), null) },
-            onClick = { navController.navigate("settings/discord") }
-        )
-        PreferenceEntry(
             title = { Text(stringResource(R.string.backup_restore)) },
             icon = { Icon(painterResource(R.drawable.restore), null) },
             onClick = { navController.navigate("settings/backup_restore") }
@@ -99,7 +99,17 @@ fun SettingsScreen(
                     }
                 },
                 onClick = {
-                    uriHandler.openUri("https://github.com/agastyatomar/AadiTune/releases/latest")
+                    Toast.makeText(context, R.string.update_in_progress, Toast.LENGTH_SHORT).show()
+                    scope.launch {
+                        Updater.downloadAndInstall(context)
+                            .onFailure {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.update_failed),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    }
                 }
             )
         }

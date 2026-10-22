@@ -55,13 +55,6 @@ fun ContentSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
-    val accountName by rememberPreference(AccountNameKey, "")
-    val accountEmail by rememberPreference(AccountEmailKey, "")
-    val accountChannelHandle by rememberPreference(AccountChannelHandleKey, "")
-    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) {
-        "SAPISID" in parseCookieString(innerTubeCookie)
-    }
     val (contentLanguage, onContentLanguageChange) = rememberPreference(key = ContentLanguageKey, defaultValue = "system")
     val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
     val (hideExplicit, onHideExplicitChange) = rememberPreference(key = HideExplicitKey, defaultValue = false)
@@ -80,15 +73,6 @@ fun ContentSettings(
     ) {
         Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
 
-        PreferenceEntry(
-            title = { Text(if (isLoggedIn) accountName else stringResource(R.string.login)) },
-            description = if (isLoggedIn) {
-                accountEmail.takeIf { it.isNotEmpty() }
-                    ?: accountChannelHandle.takeIf { it.isNotEmpty() }
-            } else null,
-            icon = { Icon(painterResource(R.drawable.person), null) },
-            onClick = { navController.navigate("login") }
-        )
         ListPreference(
             title = { Text(stringResource(R.string.content_language)) },
             icon = { Icon(painterResource(R.drawable.language), null) },
