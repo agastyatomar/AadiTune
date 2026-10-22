@@ -77,11 +77,14 @@ jobs:
       - name: Rename APK
         id: apk
         run: |
-          SRC="app/build/outputs/apk/foss/release/app-foss-release.apk"
-          DST="AadiTune-foss-release.apk"
-          if [ "${{ steps.signing.outputs.signed }}" != "true" ] && [ -f "$SRC" ]; then
-            # unsigned APKs can't be installed; emit explicit name
-            DST="AadiTune-foss-release-unsigned.apk"
+          SRC=$(find app/build/outputs/apk -name "*.apk" | head -1)
+          [ -n "$SRC" ] || { echo "No APK produced"; ls -R app/build/outputs; exit 1; }
+          echo "Found APK: $SRC"
+          BASE=$(basename "$SRC")
+          if echo "$BASE" | grep -q "unsigned"; then
+            DST="AadiTune-1.0.0-foss-release-unsigned.apk"
+          else
+            DST="AadiTune-1.0.0-foss-release.apk"
           fi
           cp "$SRC" "$DST"
           echo "apk=$DST" >> "$GITHUB_OUTPUT"
