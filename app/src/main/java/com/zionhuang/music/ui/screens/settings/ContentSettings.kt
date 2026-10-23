@@ -33,6 +33,7 @@ import com.zionhuang.music.constants.EnableKugouKey
 import com.zionhuang.music.constants.EnableLrcLibKey
 import com.zionhuang.music.constants.HideExplicitKey
 import com.zionhuang.music.constants.InnerTubeCookieKey
+import com.zionhuang.music.constants.UseLoginForBrowse
 import com.zionhuang.music.constants.JamendoClientIdKey
 import com.zionhuang.music.constants.YouTubeDataApiKeyKey
 import com.zionhuang.music.constants.LanguageCodeToName
@@ -70,6 +71,7 @@ fun ContentSettings(
     val (jamendoClientId, onJamendoClientIdChange) = rememberPreference(key = JamendoClientIdKey, defaultValue = "")
     val (youTubeDataApiKey, onYouTubeDataApiKeyChange) = rememberPreference(key = YouTubeDataApiKeyKey, defaultValue = "")
     val (innertubeCookie, onInnerTubeCookieChange) = rememberPreference(key = InnerTubeCookieKey, defaultValue = "")
+    val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(key = UseLoginForBrowse, defaultValue = false)
 
 
     Column(
@@ -154,35 +156,14 @@ fun ContentSettings(
         }
 
         PreferenceGroupTitle(
-            title = stringResource(R.string.jamendo_setup_title).uppercase()
-        )
-
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.jamendo_client_id)) },
-            description = stringResource(R.string.jamendo_client_id_summary)
-        )
-        EditTextPreference(
-            title = { Text(stringResource(R.string.jamendo_client_id)) },
-            value = jamendoClientId.ifEmpty { stringResource(R.string.jamendo_client_id_missing) },
-            onValueChange = { onJamendoClientIdChange(it.trim()) }
-        )
-
-        PreferenceGroupTitle(
-            title = stringResource(R.string.youtube_data_api_setup_title).uppercase()
-        )
-
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.youtube_data_api_key)) },
-            description = stringResource(R.string.youtube_data_api_key_summary)
-        )
-        EditTextPreference(
-            title = { Text(stringResource(R.string.youtube_data_api_key)) },
-            value = youTubeDataApiKey.ifEmpty { stringResource(R.string.jamendo_client_id_missing) },
-            onValueChange = { onYouTubeDataApiKeyChange(it.trim()) }
-        )
-
-        PreferenceGroupTitle(
             title = "YOUTUBE ACCOUNT"
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.use_login_for_browse)) },
+            icon = { Icon(painterResource(R.drawable.person), null) },
+            checked = useLoginForBrowse,
+            onCheckedChange = onUseLoginForBrowseChange
         )
 
         PreferenceEntry(

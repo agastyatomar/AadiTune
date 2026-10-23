@@ -42,9 +42,6 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.music.LocalPlayerAwareWindowInsets
 import com.zionhuang.music.LocalPlayerConnection
-import com.zionhuang.jamendo.NotConfiguredException
-import com.zionhuang.innertube.YouTubeDataNotConfiguredException
-import com.zionhuang.music.viewmodels.SearchFilterAudius
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AppBarHeight
 import com.zionhuang.music.constants.SearchFilterHeight
@@ -65,8 +62,6 @@ import com.zionhuang.music.ui.menu.YouTubeArtistMenu
 import com.zionhuang.music.ui.menu.YouTubePlaylistMenu
 import com.zionhuang.music.ui.menu.YouTubeSongMenu
 import com.zionhuang.music.viewmodels.OnlineSearchViewModel
-import com.zionhuang.music.viewmodels.SearchFilterFree
-import com.zionhuang.music.viewmodels.SearchFilterYouTubeData
 import kotlinx.coroutines.launch
 
 @Composable
@@ -241,42 +236,7 @@ fun OnlineSearchResult(
                 }
             }
 
-            if (searchFilter == SearchFilterFree && itemsPage?.items?.isEmpty() == true) {
-                item {
-                    EmptyPlaceholder(
-                        icon = R.drawable.search,
-                        text = when (val error = viewModel.freeSearchError) {
-                            is NotConfiguredException -> stringResource(R.string.jamendo_not_configured)
-                            else -> error?.message ?: stringResource(R.string.no_results_found)
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-            } else if (searchFilter == SearchFilterYouTubeData && itemsPage?.items?.isEmpty() == true) {
-                item {
-                    EmptyPlaceholder(
-                        icon = R.drawable.search,
-                        text = when (val error = viewModel.youTubeDataSearchError) {
-                            is YouTubeDataNotConfiguredException -> stringResource(R.string.youtube_data_api_not_configured)
-                            is com.zionhuang.innertube.YouTubeDataApiException ->
-                                error.message ?: stringResource(R.string.no_results_found)
-                            else -> error?.message ?: stringResource(R.string.no_results_found)
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-            } else if (searchFilter == SearchFilterAudius && itemsPage?.items?.isEmpty() == true) {
-                item {
-                    EmptyPlaceholder(
-                        icon = R.drawable.search,
-                        // Audius never needs a configured key: surface the provider's
-                        // own error text, or the generic empty state.
-                        text = viewModel.audiusSearchError?.message
-                            ?: stringResource(R.string.no_results_found),
-                        modifier = Modifier.animateItem()
-                    )
-                }
-            } else if (itemsPage?.items?.isEmpty() == true) {
+            if (itemsPage?.items?.isEmpty() == true) {
                 item {
                     EmptyPlaceholder(
                         icon = R.drawable.search,
@@ -305,9 +265,6 @@ fun OnlineSearchResult(
             FILTER_VIDEO to stringResource(R.string.filter_videos),
             FILTER_ALBUM to stringResource(R.string.filter_albums),
             FILTER_ARTIST to stringResource(R.string.filter_artists),
-            SearchFilterFree to stringResource(R.string.filter_name_free),
-            SearchFilterYouTubeData to stringResource(R.string.filter_name_yt_api),
-            SearchFilterAudius to stringResource(R.string.filter_name_audius),
             FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
             FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
         ),

@@ -78,6 +78,17 @@ CI builds the APK automatically on every push/PR (see
 
 ## Providers & API keys
 
+NovaTune ships **YouTube Music (InnerTube) only** in the search UI, matching the
+ReVanced-style single-source setup. Provider integrations remain in the repo
+and in playback code paths (`jamendo:` / `audius:` ids still stream when queued),
+but are no longer surfaced as separate filter chips or key settings.
+
+The equivalent of ReVanced's microG login is built in: Settings > Content >
+"YOUTUBE ACCOUNT" lets you paste a `music.youtube.com` login cookie and turn on
+"Use login for browsing content", which powers account-based playback and
+logged-in browsing exactly like official clients do (stored app-privately,
+never committed).
+
 NovaTune plays from consumer-configured sources; **no API key or other
 credential is ever committed** - each key is pasted into the app
 (Settings > Content) and kept in the app's private storage:
