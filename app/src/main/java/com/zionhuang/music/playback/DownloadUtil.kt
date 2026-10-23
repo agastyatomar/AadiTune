@@ -87,7 +87,7 @@ class DownloadUtil @Inject constructor(
                 }
             }
         }.getOrElse { throwable ->
-            if (throwable is kotlinx.coroutines.TimeoutCancellationException) {
+            if (throwable is TimeoutCancellationException) {
                 throw PlaybackException(
                     "Resolving stream timed out",
                     throwable,

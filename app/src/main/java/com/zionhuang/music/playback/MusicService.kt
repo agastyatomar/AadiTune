@@ -126,6 +126,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.ObjectInputStream
@@ -716,7 +718,7 @@ class MusicService : MediaLibraryService(),
                     }
                 }
             }.getOrElse { throwable ->
-                if (throwable is kotlinx.coroutines.TimeoutCancellationException) {
+                if (throwable is TimeoutCancellationException) {
                     // A slotless hang would freeze the loader thread forever; error out instead.
                     Timber.w("resolve: id=%s timed out after %dms", mediaId, RESOLUTION_TIMEOUT_MS)
                     throw PlaybackException(
