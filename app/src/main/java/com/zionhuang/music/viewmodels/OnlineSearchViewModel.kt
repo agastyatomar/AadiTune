@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zionhuang.audius.Audius
 import com.zionhuang.audius.models.AudiusTrack
+import com.zionhuang.saavn.Saavn
+import com.zionhuang.saavn.models.SaavnTrack
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.YouTubeData
 import com.zionhuang.innertube.YouTubeDataVideo
@@ -55,6 +57,13 @@ val SearchFilterYouTubeData = YouTube.SearchFilter("__ytdapi__")
  */
 val SearchFilterAudius = YouTube.SearchFilter("__audius__")
 
+/**
+ * Sentinel search filter: the saavn.dev public API, serving OFFICIAL full-length
+ * MP3s (128/320 kbps) for mainstream/Hindi catalogues - the provider whose
+ * direct stream URLs are not byte-capped like unauthenticated YouTube CDN ranges.
+ */
+val SearchFilterSaavn = YouTube.SearchFilter("__saavn__")
+
 @HiltViewModel
 class OnlineSearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -86,6 +95,7 @@ class OnlineSearchViewModel @Inject constructor(
                     SearchFilterFree.value -> if (viewStateMap[SearchFilterFree.value] == null) loadFreePage(0)
                     SearchFilterYouTubeData.value -> if (viewStateMap[SearchFilterYouTubeData.value] == null) loadYouTubeDataPage(null)
                     SearchFilterAudius.value -> if (viewStateMap[SearchFilterAudius.value] == null) loadAudiusPage(0)
+                    SearchFilterSaavn.value -> if (viewStateMap[SearchFilterSaavn.value] == null) loadSaavnPage(0)
                     null -> if (summaryPage == null) {
                         YouTube.searchSummary(query)
                             .onSuccess {
@@ -169,6 +179,12 @@ class OnlineSearchViewModel @Inject constructor(
                     loadAudiusPage(offset)
                 }
 
+                SearchFilterSaavn.value -> {
+                    val viewState = viewStateMap[filter] ?: return@launch
+                    val offset = viewState.continuation?.toIntOrNull() ?: return@launch
+                    loadSaavnPage(offset)
+                }
+
                 else -> {
                     val viewState = viewStateMap[filter] ?: return@launch
                     val continuation = viewState.continuation
@@ -232,6 +248,35 @@ class OnlineSearchViewModel @Inject constructor(
             reportException(e)
         }
     }
+
+    /** Last saavn.dev provider error (null if none). Surfaced in the search screen. */
+    var saavnSearchError by mutableStateOf<Throwable?>(null)
+        private set
+
+    /**
+     * saavn.dev public API page. Full-length official MP3s; tracks carry
+     * "saavn:" namespaced ids that the player resolves against Saavn directly.
+     */
+    private suspend fun loadSaavnPage(offset: Int) {
+        try {
+            saavnSearchError = null
+            val pageSize = 25
+            val tracks = Saavn.search(query, limit = pageSize, offset = offset)
+            val items: List<YTItem> = tracks.map { it.toSongItem() }
+            val existing = viewStateMap[SearchFilterSaavn.value]?.items.orEmpty()
+            val seenIds = mutableSetOf<String>()
+            val deduped = (existing + items).filter { seenIds.add(it.id) }
+            val hasMore = tracks.size == pageSize
+            viewStateMap[SearchFilterSaavn.value] =
+                ItemsPage(deduped, if (hasMore) (offset + pageSize).toString() else null)
+        } catch (e: Throwable) {
+            saavnSearchError = e
+            if (viewStateMap[SearchFilterSaavn.value] == null) {
+                viewStateMap[SearchFilterSaavn.value] = ItemsPage(emptyList(), null)
+            }
+            reportException(e)
+        }
+    }
 }
 
 /**
@@ -277,5 +322,20 @@ fun AudiusTrack.toSongItem() = SongItem(
     duration = durationSeconds(),
     thumbnail = artwork?.bestUrl().orEmpty(),
     explicit = false,
+    endpoint = null,
+)
+
+/**
+ * Map a saavn.dev track to a search card: full-length official MP3 streams,
+ * no byte cap, no key; id namespaced ("saavn:") for the playback resolver.
+ */
+fun SaavnTrack.toSongItem() = SongItem(
+    id = "saavn:$id",
+    title = name.orEmpty(),
+    artists = listOf(Artist(id = null, name = primaryArtists.orEmpty())),
+    album = null,
+    duration = durationSeconds(),
+    thumbnail = bestThumbUrl().orEmpty(),
+    explicit = isExplicit(),
     endpoint = null,
 )

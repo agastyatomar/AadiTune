@@ -62,6 +62,7 @@ import com.zionhuang.music.ui.menu.YouTubeArtistMenu
 import com.zionhuang.music.ui.menu.YouTubePlaylistMenu
 import com.zionhuang.music.ui.menu.YouTubeSongMenu
 import com.zionhuang.music.viewmodels.OnlineSearchViewModel
+import com.zionhuang.music.viewmodels.SearchFilterSaavn
 import kotlinx.coroutines.launch
 
 @Composable
@@ -104,7 +105,7 @@ fun OnlineSearchResult(
         // not be queued through YouTube-only features such as radio playback or the
         // YouTube song menu (like/library/radio actions would misattribute results).
         val isFreeProviderSong = item is SongItem &&
-            (item.id.startsWith("jamendo:") || item.id.startsWith("audius:"))
+            (item.id.startsWith("jamendo:") || item.id.startsWith("audius:") || item.id.startsWith("saavn:"))
         val freeQueueTitle = stringResource(R.string.queue_searched_songs)
         val trailing: @Composable RowScope.() -> Unit =
             if (isFreeProviderSong) {
@@ -236,7 +237,16 @@ fun OnlineSearchResult(
                 }
             }
 
-            if (itemsPage?.items?.isEmpty() == true) {
+            if (searchFilter == SearchFilterSaavn && itemsPage?.items?.isEmpty() == true) {
+                item {
+                    EmptyPlaceholder(
+                        icon = R.drawable.search,
+                        text = viewModel.saavnSearchError?.message
+                            ?: stringResource(R.string.no_results_found),
+                        modifier = Modifier.animateItem()
+                    )
+                }
+            } else if (itemsPage?.items?.isEmpty() == true) {
                 item {
                     EmptyPlaceholder(
                         icon = R.drawable.search,
@@ -265,6 +275,7 @@ fun OnlineSearchResult(
             FILTER_VIDEO to stringResource(R.string.filter_videos),
             FILTER_ALBUM to stringResource(R.string.filter_albums),
             FILTER_ARTIST to stringResource(R.string.filter_artists),
+            SearchFilterSaavn to stringResource(R.string.filter_name_saavn),
             FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
             FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
         ),

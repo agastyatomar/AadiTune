@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.response.AudioFormatSelection
+import com.zionhuang.saavn.Saavn
 import com.zionhuang.music.constants.AudioQuality
 import com.zionhuang.music.constants.AudioQualityKey
 import com.zionhuang.music.db.MusicDatabase
@@ -58,6 +59,26 @@ class DownloadUtil @Inject constructor(
             )
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
+
+        // Saavn is the OFFLINE-capable provider: its official full-length MP3s
+        // carry no CDN byte cap, so the download flow streams the whole file and
+        // saves it in the app library (no subrange chopping needed either).
+        if (mediaId.startsWith(MusicService.SAAVN_MEDIA_ID_PREFIX)) {
+            val streamUrl = runBlocking(Dispatchers.IO) {
+                runCatching {
+                    kotlinx.coroutines.withTimeout(20_000L) {
+                        Saavn.streamUrl(mediaId.removePrefix(MusicService.SAAVN_MEDIA_ID_PREFIX))
+                    }
+                }
+            }.getOrElse { throwable ->
+                throw PlaybackException(
+                    "Download failed: ${throwable.message ?: "Saavn stream resolution"}",
+                    throwable,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR
+                )
+            }
+            return@Factory dataSpec.withUri(streamUrl.toUri())
+        }
 
         // Free/open providers (Jamendo + Audius) are never download queue items:
         // official licence terms restrict redistribution and the download flow is

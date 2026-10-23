@@ -213,6 +213,7 @@
     <string name="filter_name_free">Free</string>
     <string name="filter_name_yt_api">YT API</string>
     <string name="filter_name_audius">Audius</string>
+    <string name="filter_name_saavn">Saavn</string>
     <string name="jamendo_client_id">Jamendo client ID</string>
     <string name="jamendo_client_id_summary">Enable the Free filter: generate a free client ID at dev.jamendo.com and paste it here. The key is stored locally and stays on your device.</string>
     <string name="jamendo_client_id_missing">Not configured - tap to add</string>

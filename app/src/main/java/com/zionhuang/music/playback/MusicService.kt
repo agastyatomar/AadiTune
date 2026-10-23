@@ -58,6 +58,7 @@ import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.audius.Audius
+import com.zionhuang.saavn.Saavn
 import com.zionhuang.jamendo.Jamendo
 import com.zionhuang.jamendo.NotConfiguredException
 import com.zionhuang.music.MainActivity
@@ -709,6 +710,27 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             }
 
+            // Saavn (saavn.dev public API): ids are "saavn:<trackId>". Official
+            // full-length MP3 streams; no YouTube byte cap applies, so the format
+            // selection machinery below is bypassed entirely.
+            if (mediaId.startsWith(SAAVN_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Saavn.streamUrl(mediaId.removePrefix(SAAVN_MEDIA_ID_PREFIX))
+                        }
+                    }
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        throwable.message?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.error_unknown),
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
             // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
 
@@ -1044,6 +1066,7 @@ class MusicService : MediaLibraryService(),
         const val ERROR_CODE_PREVIEW_ONLY = 1000003
         const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
         const val AUDIUS_MEDIA_ID_PREFIX = "audius:"
+        const val SAAVN_MEDIA_ID_PREFIX = "saavn:"
         const val CHUNK_LENGTH = 512 * 1024L
 
         /** Resolver network work must never hang the loader thread silently. */
