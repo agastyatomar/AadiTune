@@ -26,6 +26,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
@@ -847,44 +848,44 @@ class MusicService : MediaLibraryService(),
                 // instead of crashing on missing contentLength/format fields further below.
                 throw PlaybackException(getString(R.string.error_live_unsupported), null, ERROR_CODE_LIVE_UNSUPPORTED)
             }
-            val streamingData = playerResponse.streamingData
-                ?: run {
-                    if (orderIndex == clientOrders.lastIndex) {
-                        throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
-                    }
-                    continue
+            val streamingData: PlayerResponse.StreamingData? = playerResponse.streamingData
+            if (streamingData == null) {
+                if (orderIndex == clientOrders.lastIndex) {
+                    throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
                 }
+                continue
+            }
 
             val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
             val audioCandidates = streamingData.adaptiveFormats.filter { it.isAudio && it.url != null }
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-            val format =
-                if (playedFormat != null) {
-                    audioCandidates.find {
-                        it.itag == playedFormat.itag
-                    }?.takeUnless { AudioFormatSelection.isFullLength(it, durationSeconds) == false }
-                } else {
-                    null
-                } ?: run {
-                    val fullLength =
-                        audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
-                    (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
-                        .maxByOrNull {
-                            it.bitrate * when (audioQuality) {
-                                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                                AudioQuality.HIGH -> 1
-                                AudioQuality.LOW -> -1
-                            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
-                        }
-                }.takeIf { it?.url != null && it.contentLength != null }
-                    ?: run {
-                        if (orderIndex == clientOrders.lastIndex) {
-                            throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
-                        }
-                        continue
-                    }
 
-            if (AudioFormatSelection.isDefinitelyPreview(format, durationSeconds)) {
+            var format: PlayerResponse.StreamingData.Format? = null
+            if (playedFormat != null) {
+                format = audioCandidates.find { it.itag == playedFormat.itag }
+                    ?.takeUnless { AudioFormatSelection.isFullLength(it, durationSeconds) == false }
+            }
+            if (format == null) {
+                val fullLength =
+                    audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
+                format = (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
+                    .maxByOrNull {
+                        it.bitrate * when (audioQuality) {
+                            AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
+                            AudioQuality.HIGH -> 1
+                            AudioQuality.LOW -> -1
+                        } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
+                    }
+            }
+            if (format?.url == null || format?.contentLength == null) {
+                if (orderIndex == clientOrders.lastIndex) {
+                    throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+                }
+                continue
+            }
+            val playableFormat = format!!
+
+            if (AudioFormatSelection.isDefinitelyPreview(playableFormat, durationSeconds)) {
                 lastError = PlaybackException(getString(R.string.error_preview_only), null, ERROR_CODE_PREVIEW_ONLY)
                 if (orderIndex == clientOrders.lastIndex) throw lastError
                 continue
@@ -892,10 +893,10 @@ class MusicService : MediaLibraryService(),
 
             Timber.w(
                 "resolve: order=%d format itag=%d len=%d dur=%s",
-                orderIndex, format.itag, format.contentLength, durationSeconds,
+                orderIndex, playableFormat.itag, playableFormat.contentLength, durationSeconds,
             )
 
-            if (!probeStreamUrl(format.url!!)) {
+            if (!probeStreamUrl(playableFormat.url!!)) {
                 lastError = PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
                 if (orderIndex == clientOrders.lastIndex) throw lastError
                 continue
@@ -905,12 +906,12 @@ class MusicService : MediaLibraryService(),
                 upsert(
                     FormatEntity(
                         id = mediaId,
-                        itag = format.itag,
-                        mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                        bitrate = format.bitrate,
-                        sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength ?: -1L,
+                        itag = playableFormat.itag,
+                        mimeType = playableFormat.mimeType.split(";")[0],
+                        codecs = playableFormat.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                        bitrate = playableFormat.bitrate,
+                        sampleRate = playableFormat.audioSampleRate,
+                        contentLength = playableFormat.contentLength ?: -1L,
                         loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
                     )
                 )
@@ -919,7 +920,7 @@ class MusicService : MediaLibraryService(),
 
             // Stream the FULL remaining file in this single open; no url caching, no
             // chunking (see notes above).
-            return dataSpec.withUri(format.url!!.toUri())
+            return dataSpec.withUri(playableFormat.url!!.toUri())
         }
         throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
     }
