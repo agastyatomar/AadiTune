@@ -185,7 +185,6 @@ class MusicService : MediaLibraryService(),
     lateinit var playerCache: SimpleCache
 
     /** Stream URL cache: mediaId to (url, absolute expiry millis) */
-    private val songUrlCache = mutableMapOf<String, Pair<String, Long>>()
 
     @Inject
     @DownloadCache
@@ -603,9 +602,8 @@ class MusicService : MediaLibraryService(),
         }
         // Purge the cached stream URL / partially cached audio of the failing item so that
         // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
-        mediaId?.let { id ->
-            songUrlCache.remove(id)
-            runCatching { playerCache.removeResource(id) }
+            mediaId?.let { id ->
+                runCatching { playerCache.removeResource(id) }
             // Silently retry the same item with a fresh stream URL a few times before giving up.
             val attempts = streamRetryAttempts[id] ?: 0
             if (attempts < 2) {
@@ -727,11 +725,11 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                Timber.w("resolve: id=%s pos=%d -> cached stream url branch", mediaId, dataSpec.position)
-                scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.first.toUri())
-            }
+            // NOTE: the old "reuse remembered stream URL" shortcut is intentionally
+            // gone. Live logcat evidence (HTTP 403 on the second DataSpec open at the
+            // 512KB boundary) proved signed CDN urls are effectively one-shot: the
+            // follow-up ranged open on the SAME url fails with 403, which froze
+            // playback at ~28s. Every open now gets its own freshly resolved url.
             Timber.w("resolve: id=%s pos=%d -> resolving player response", mediaId, dataSpec.position)
             val playerResponse = runCatching {
                 runBlocking(Dispatchers.IO) {
@@ -832,8 +830,13 @@ class MusicService : MediaLibraryService(),
             }
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-            songUrlCache[mediaId] = format.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
-            dataSpec.withUri(format.url!!.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            // Stream the FULL remaining file in this single open. The 512KB-chunked
+            // variant forced an extra ranged open on the SAME signed url at every
+            // chunk boundary and the CDN answered HTTP 403 there - killing playback
+            // at ~28s. A fresh url is resolved for each open (see note above), and
+            // this open reads its entire range in one continuous session, so audio
+            // never depends on a second request to the spent url.
+            dataSpec.withUri(format.url!!.toUri())
         }
     }
 
@@ -947,7 +950,6 @@ class MusicService : MediaLibraryService(),
         const val ERROR_CODE_PREVIEW_ONLY = 1000003
         const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
         const val AUDIUS_MEDIA_ID_PREFIX = "audius:"
-        const val CHUNK_LENGTH = 512 * 1024L
 
         /** Resolver network work must never hang the loader thread silently. */
         const val RESOLUTION_TIMEOUT_MS = 20_000L

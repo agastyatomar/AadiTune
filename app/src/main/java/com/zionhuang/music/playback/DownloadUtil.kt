@@ -46,7 +46,6 @@ class DownloadUtil @Inject constructor(
 ) {
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.HIGH)
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
             .setCache(playerCache)
@@ -77,10 +76,6 @@ class DownloadUtil @Inject constructor(
 
         if (playerCache.isCached(mediaId, dataSpec.position, length)) {
             return@Factory dataSpec
-        }
-
-        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-            return@Factory dataSpec.withUri(it.first.toUri())
         }
 
         val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
@@ -154,7 +149,9 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        songUrlCache[mediaId] = rangedFormat.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
+        // Freshly resolved urls are served for the whole remaining range; reusing a
+        // previous signed url caused HTTP 403 on the next DataSpec open (observed in
+        // logcat at every 512KB boundary), so no url cache is kept here either.
         dataSpec.withUri(rangedFormat.url!!.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
