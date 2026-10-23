@@ -52,6 +52,12 @@ class InnerTube {
     @OptIn(ExperimentalSerializationApi::class)
     private fun createClient() = HttpClient(OkHttp) {
         expectSuccess = true
+        // A hanging request must become a visible error, never a silent player stall.
+        install(HttpTimeout) {
+            connectTimeoutMillis = 10_000
+            requestTimeoutMillis = 15_000
+            socketTimeoutMillis = 15_000
+        }
 
         install(ContentNegotiation) {
             json(Json {

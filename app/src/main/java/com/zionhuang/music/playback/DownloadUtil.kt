@@ -81,8 +81,20 @@ class DownloadUtil @Inject constructor(
 
         val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
         val playerResponse = runBlocking(Dispatchers.IO) {
-            YouTube.player(mediaId)
-        }.getOrThrow()
+            kotlinx.coroutines.withTimeout(20_000L) {
+                YouTube.player(mediaId).getOrThrow()
+            }
+        }.getOrElse { throwable ->
+            if (throwable is kotlinx.coroutines.TimeoutCancellationException) {
+                throw PlaybackException(
+                    "Resolving stream timed out",
+                    throwable,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                )
+            }
+            throw if (throwable is PlaybackException) throwable
+            else PlaybackException(throwable.message ?: "Resolution failure", throwable, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+        }
         if (playerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         }

@@ -663,7 +663,11 @@ class MusicService : MediaLibraryService(),
             // Never routed through the YouTube/InnerTube resolution below.
             if (mediaId.startsWith(JAMENDO_MEDIA_ID_PREFIX)) {
                 val streamUrl = runBlocking(Dispatchers.IO) {
-                    runCatching { Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX)) }
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX))
+                        }
+                    }
                 }.getOrElse { throwable ->
                     throw PlaybackException(
                         when {
@@ -700,12 +704,27 @@ class MusicService : MediaLibraryService(),
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+                Timber.w("resolve: id=%s pos=%d -> cached stream url branch", mediaId, dataSpec.position)
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
-            val playerResponse = runBlocking(Dispatchers.IO) {
-                YouTube.player(mediaId)
+            Timber.w("resolve: id=%s pos=%d -> resolving player response", mediaId, dataSpec.position)
+            val playerResponse = runCatching {
+                runBlocking(Dispatchers.IO) {
+                    withTimeout(RESOLUTION_TIMEOUT_MS) {
+                        YouTube.player(mediaId).getOrThrow()
+                    }
+                }
             }.getOrElse { throwable ->
+                if (throwable is kotlinx.coroutines.TimeoutCancellationException) {
+                    // A slotless hang would freeze the loader thread forever; error out instead.
+                    Timber.w("resolve: id=%s timed out after %dms", mediaId, RESOLUTION_TIMEOUT_MS)
+                    throw PlaybackException(
+                        getString(R.string.error_timeout),
+                        throwable,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                    )
+                }
                 when (throwable) {
                     is ConnectException, is UnknownHostException -> {
                         throw PlaybackException(getString(R.string.error_no_internet), throwable, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
@@ -759,8 +778,13 @@ class MusicService : MediaLibraryService(),
                                 AudioQuality.LOW -> -1
                             } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
                         }
-                }.takeIf { it?.url != null && it.contentLength != null }
-                    ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+            }.takeIf { it?.url != null && it.contentLength != null }
+                ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+
+            Timber.w(
+                "resolve: id=%s pos=%d -> format itag=%d len=%d dur=%s",
+                mediaId, dataSpec.position, format.itag, format.contentLength, durationSeconds,
+            )
 
             // Honest truncation guard: never silently play a format that can only
             // deliver a preview-sized fraction of the track.
@@ -899,6 +923,9 @@ class MusicService : MediaLibraryService(),
         const val ERROR_CODE_PREVIEW_ONLY = 1000003
         const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
         const val CHUNK_LENGTH = 512 * 1024L
+
+        /** Resolver network work must never hang the loader thread silently. */
+        const val RESOLUTION_TIMEOUT_MS = 20_000L
         const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     }
 }

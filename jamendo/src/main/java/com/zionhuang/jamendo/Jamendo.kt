@@ -3,6 +3,7 @@ package com.zionhuang.jamendo
 import com.zionhuang.jamendo.models.JamendoTrack
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
@@ -47,6 +48,11 @@ object Jamendo {
             }
 
             expectSuccess = true
+            install(HttpTimeout) {
+                connectTimeoutMillis = 10_000
+                requestTimeoutMillis = 15_000
+                socketTimeoutMillis = 15_000
+            }
         }
     }
 
