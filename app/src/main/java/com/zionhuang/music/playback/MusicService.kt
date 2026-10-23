@@ -107,6 +107,7 @@ import com.zionhuang.music.utils.reportException
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import timber.log.Timber
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -575,6 +576,9 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayerError(error: PlaybackException) {
         val mediaId = player.currentMediaItem?.mediaId
+        // No sensitive data here: provider error code, media id and the playback
+        // position - enough to diagnose mid-play stops (e.g. ~30s truncation).
+        Timber.w("playback-error: code=%d positionMs=%d mediaId=%s", error.errorCode, player.currentPosition, mediaId)
         // Live streams cannot be resolved unauthenticated: don't burn retries, just skip on.
         if (error.errorCode == ERROR_CODE_LIVE_UNSUPPORTED) {
             if (isInternetAvailable(this) && player.hasNextMediaItem()) {
@@ -731,15 +735,20 @@ class MusicService : MediaLibraryService(),
 
             val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
             val audioCandidates = streamingData.adaptiveFormats.filter { it.isAudio && it.url != null }
+            // Prefer formats whose byte length matches the advertised duration: this
+            // rejects 30-second "sample" responses for full-length tracks. A remembered
+            // (previous session) itag is only honoured when ITS byte length also looks
+            // complete - otherwise stale sample-format rows in the local database would
+            // keep replaying ~30s of audio even for a fresh, complete player response.
             val format =
                 if (playedFormat != null) {
                     audioCandidates.find {
                         // Use itag to identify previously played format
                         it.itag == playedFormat.itag
-                    }
+                    }?.takeUnless { AudioFormatSelection.isFullLength(it, durationSeconds) == false }
                 } else {
-                    // Prefer formats whose byte length matches the advertised duration: this
-                    // rejects 30-second "sample" responses for full-length tracks.
+                    null
+                } ?: run {
                     val fullLength =
                         audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
                     (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
