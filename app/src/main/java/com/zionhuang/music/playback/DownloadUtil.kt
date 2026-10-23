@@ -60,9 +60,12 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
 
-        // Free (Jamendo) tracks are never download queue items: official licence terms
-        // restrict redistribution and the download flow is YouTube-id oriented.
-        if (mediaId.startsWith(MusicService.JAMENDO_MEDIA_ID_PREFIX)) {
+        // Free/open providers (Jamendo + Audius) are never download queue items:
+        // official licence terms restrict redistribution and the download flow is
+        // YouTube-id oriented.
+        if (mediaId.startsWith(MusicService.JAMENDO_MEDIA_ID_PREFIX) ||
+            mediaId.startsWith(MusicService.AUDIUS_MEDIA_ID_PREFIX)
+        ) {
             throw PlaybackException(
                 "Streaming only - downloads for the free provider are not supported",
                 null,

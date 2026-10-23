@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zionhuang.audius.Audius
+import com.zionhuang.audius.models.AudiusTrack
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.YouTubeData
 import com.zionhuang.innertube.YouTubeDataVideo
@@ -47,6 +49,12 @@ val SearchFilterFree = YouTube.SearchFilter("__jamendo__")
  */
 val SearchFilterYouTubeData = YouTube.SearchFilter("__ytdapi__")
 
+/**
+ * Sentinel search filter: search the PUBLIC-APIS-listed Audius open catalogue
+ * (no credential required). Handled before any YouTube call is made.
+ */
+val SearchFilterAudius = YouTube.SearchFilter("__audius__")
+
 @HiltViewModel
 class OnlineSearchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -65,6 +73,10 @@ class OnlineSearchViewModel @Inject constructor(
     var youTubeDataSearchError by mutableStateOf<Throwable?>(null)
         private set
 
+    /** Last Audius provider error (null if none). Surfaced in the search screen. */
+    var audiusSearchError by mutableStateOf<Throwable?>(null)
+        private set
+
     private val hideExplicit get() = context.dataStore.get(HideExplicitKey, false)
 
     init {
@@ -73,6 +85,7 @@ class OnlineSearchViewModel @Inject constructor(
                 when (filter?.value) {
                     SearchFilterFree.value -> if (viewStateMap[SearchFilterFree.value] == null) loadFreePage(0)
                     SearchFilterYouTubeData.value -> if (viewStateMap[SearchFilterYouTubeData.value] == null) loadYouTubeDataPage(null)
+                    SearchFilterAudius.value -> if (viewStateMap[SearchFilterAudius.value] == null) loadAudiusPage(0)
                     null -> if (summaryPage == null) {
                         YouTube.searchSummary(query)
                             .onSuccess {
@@ -150,6 +163,12 @@ class OnlineSearchViewModel @Inject constructor(
                     }
                 }
 
+                SearchFilterAudius.value -> {
+                    val viewState = viewStateMap[filter] ?: return@launch
+                    val offset = viewState.continuation?.toIntOrNull() ?: return@launch
+                    loadAudiusPage(offset)
+                }
+
                 else -> {
                     val viewState = viewStateMap[filter] ?: return@launch
                     val continuation = viewState.continuation
@@ -187,6 +206,32 @@ class OnlineSearchViewModel @Inject constructor(
             reportException(e)
         }
     }
+
+    /**
+     * Public-apis listed Audius catalogue search. No credential is required, every
+     * result streams full length from the provider's own endpoint, and tracks carry
+     * "audius:" namespaced ids to keep provider sources apart downstream.
+     */
+    private suspend fun loadAudiusPage(offset: Int) {
+        try {
+            audiusSearchError = null
+            val pageSize = 25
+            val tracks = Audius.search(query, limit = pageSize, offset = offset)
+            val items: List<YTItem> = tracks.map { it.toSongItem() }
+            val existing = viewStateMap[SearchFilterAudius.value]?.items.orEmpty()
+            val seenIds = mutableSetOf<String>()
+            val deduped = (existing + items).filter { seenIds.add(it.id) }
+            val hasMore = tracks.size == pageSize
+            viewStateMap[SearchFilterAudius.value] =
+                ItemsPage(deduped, if (hasMore) (offset + pageSize).toString() else null)
+        } catch (e: Throwable) {
+            audiusSearchError = e
+            if (viewStateMap[SearchFilterAudius.value] == null) {
+                viewStateMap[SearchFilterAudius.value] = ItemsPage(emptyList(), null)
+            }
+            reportException(e)
+        }
+    }
 }
 
 /**
@@ -218,4 +263,19 @@ fun JamendoTrack.toSongItem() = SongItem(
     thumbnail = image ?: album_image.orEmpty(),
     explicit = false,
     endpoint = null, // never a YouTube radio/playlist endpoint
+)
+
+/**
+ * Map an Audius (public-apis, open catalogue) track to a search card. Zero config
+ * and no key; the id is namespaced so the player resolves it against Audius only.
+ */
+fun AudiusTrack.toSongItem() = SongItem(
+    id = "audius:$id",
+    title = title,
+    artists = listOf(Artist(id = null, name = user?.name.orEmpty())),
+    album = null,
+    duration = durationSeconds(),
+    thumbnail = artwork?.bestUrl().orEmpty(),
+    explicit = false,
+    endpoint = null,
 )

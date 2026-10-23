@@ -87,6 +87,12 @@ credential is ever committed** - each key is pasted into the app
 | default chips | YouTube Music (InnerTube) search | no | the app's original search |
 | **YT API** | official YouTube Data API v3 search | yes - your own free key (Google Cloud console: enable "YouTube Data API v3", create an API key; restrict it to that API). Searches cost 100 quota units (~100 searches/day free). Metadata only: id/title/channel/thumbnail/duration. The Data API never provides audio streams. |
 | **Free** | Jamendo (independent, CC-licensed catalogue) | yes - free client ID from dev.jamendo.com (register an app). Playback uses Jamendo's own official full-length stream URLs; CC terms apply; downloading/redistribution stays disabled in the app. |
+| **Audius** | Audius open catalogue (listed in the public-apis repo) | no - zero configuration, no credential needed. Full-length streams come from the provider's own official endpoints; downloading/redistribution stays disabled in the app. |
+
+You can also enable account-based (Google-logged-in YouTube) playback by pasting
+a login cookie: sign in to music.youtube.com in any desktop browser, copy the
+request header "Cookie", paste it in Settings > Content > "YouTube account
+cookie". The cookie is stored in the app's private storage only.
 
 Missing-key behavior (honest fallbacks, tested):
 

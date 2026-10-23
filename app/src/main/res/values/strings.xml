@@ -205,11 +205,14 @@
     <string name="error_unknown">Unknown error</string>
     <string name="error_live_unsupported">Live streams aren\'t supported yet</string>
     <string name="error_preview_only">Only a preview of this song is available on this source</string>
+    <string name="yt_login_cookie">YouTube account cookie</string>
+    <string name="yt_login_cookie_summary" translatable="false">Paste the login cookie from music.youtube.com to enable account-based playback (Google login)</string>
     <string name="jamendo_not_configured">Free music provider not configured - add a Jamendo client ID in settings</string>
 
     <!-- Jamendo (free independent music provider) -->
     <string name="filter_name_free">Free</string>
     <string name="filter_name_yt_api">YT API</string>
+    <string name="filter_name_audius">Audius</string>
     <string name="jamendo_client_id">Jamendo client ID</string>
     <string name="jamendo_client_id_summary">Enable the Free filter: generate a free client ID at dev.jamendo.com and paste it here. The key is stored locally and stays on your device.</string>
     <string name="jamendo_client_id_missing">Not configured - tap to add</string>

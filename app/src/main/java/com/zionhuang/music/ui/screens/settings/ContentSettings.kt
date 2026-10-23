@@ -69,6 +69,7 @@ fun ContentSettings(
 
     val (jamendoClientId, onJamendoClientIdChange) = rememberPreference(key = JamendoClientIdKey, defaultValue = "")
     val (youTubeDataApiKey, onYouTubeDataApiKeyChange) = rememberPreference(key = YouTubeDataApiKeyKey, defaultValue = "")
+    val (innertubeCookie, onInnerTubeCookieChange) = rememberPreference(key = InnerTubeCookieKey, defaultValue = "")
 
 
     Column(
@@ -178,6 +179,20 @@ fun ContentSettings(
             title = { Text(stringResource(R.string.youtube_data_api_key)) },
             value = youTubeDataApiKey.ifEmpty { stringResource(R.string.jamendo_client_id_missing) },
             onValueChange = { onYouTubeDataApiKeyChange(it.trim()) }
+        )
+
+        PreferenceGroupTitle(
+            title = "YOUTUBE ACCOUNT"
+        )
+
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.yt_login_cookie)) },
+            description = stringResource(R.string.yt_login_cookie_summary)
+        )
+        EditTextPreference(
+            title = { Text(stringResource(R.string.yt_login_cookie)) },
+            value = innertubeCookie.ifEmpty { stringResource(R.string.jamendo_client_id_missing) },
+            onValueChange = { onInnerTubeCookieChange(it.trim()) }
         )
     }
 

@@ -55,6 +55,7 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.PlayerResponse
+import com.zionhuang.audius.Audius
 import com.zionhuang.jamendo.Jamendo
 import com.zionhuang.jamendo.NotConfiguredException
 import com.zionhuang.music.MainActivity
@@ -685,6 +686,27 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             }
 
+            // Audius (open catalogue from public-apis): ids are "audius:<trackId>".
+            // Streams are the provider's own redirect endpoints serving the full file
+            // to anyone - no auth, no subrange, no key required.
+            if (mediaId.startsWith(AUDIUS_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Audius.streamUrl(mediaId.removePrefix(AUDIUS_MEDIA_ID_PREFIX))
+                        }
+                    }
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        throwable.message?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.error_unknown),
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
             // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
 
@@ -924,6 +946,7 @@ class MusicService : MediaLibraryService(),
         const val ERROR_CODE_LIVE_UNSUPPORTED = 1000002
         const val ERROR_CODE_PREVIEW_ONLY = 1000003
         const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
+        const val AUDIUS_MEDIA_ID_PREFIX = "audius:"
         const val CHUNK_LENGTH = 512 * 1024L
 
         /** Resolver network work must never hang the loader thread silently. */

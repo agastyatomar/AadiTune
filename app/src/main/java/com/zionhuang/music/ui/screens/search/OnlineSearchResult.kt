@@ -44,6 +44,7 @@ import com.zionhuang.music.LocalPlayerAwareWindowInsets
 import com.zionhuang.music.LocalPlayerConnection
 import com.zionhuang.jamendo.NotConfiguredException
 import com.zionhuang.innertube.YouTubeDataNotConfiguredException
+import com.zionhuang.music.viewmodels.SearchFilterAudius
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AppBarHeight
 import com.zionhuang.music.constants.SearchFilterHeight
@@ -104,7 +105,11 @@ fun OnlineSearchResult(
         // Jamendo (free provider) items carry a "jamendo:" namespaced id; they must
         // not be queued through YouTube-only features such as radio playback or the
         // YouTube song menu (like/library/radio actions would misattribute results).
-        val isFreeProviderSong = item is SongItem && item.id.startsWith("jamendo:")
+        // Free-provider items carry a namespaced id ("jamendo:"/"audius:"); they must
+        // not be queued through YouTube-only features such as radio playback or the
+        // YouTube song menu (like/library/radio actions would misattribute results).
+        val isFreeProviderSong = item is SongItem &&
+            (item.id.startsWith("jamendo:") || item.id.startsWith("audius:"))
         val freeQueueTitle = stringResource(R.string.queue_searched_songs)
         val trailing: @Composable RowScope.() -> Unit =
             if (isFreeProviderSong) {
@@ -260,6 +265,17 @@ fun OnlineSearchResult(
                         modifier = Modifier.animateItem()
                     )
                 }
+            } else if (searchFilter == SearchFilterAudius && itemsPage?.items?.isEmpty() == true) {
+                item {
+                    EmptyPlaceholder(
+                        icon = R.drawable.search,
+                        // Audius never needs a configured key: surface the provider's
+                        // own error text, or the generic empty state.
+                        text = viewModel.audiusSearchError?.message
+                            ?: stringResource(R.string.no_results_found),
+                        modifier = Modifier.animateItem()
+                    )
+                }
             } else if (itemsPage?.items?.isEmpty() == true) {
                 item {
                     EmptyPlaceholder(
@@ -291,6 +307,7 @@ fun OnlineSearchResult(
             FILTER_ARTIST to stringResource(R.string.filter_artists),
             SearchFilterFree to stringResource(R.string.filter_name_free),
             SearchFilterYouTubeData to stringResource(R.string.filter_name_yt_api),
+            SearchFilterAudius to stringResource(R.string.filter_name_audius),
             FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
             FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
         ),

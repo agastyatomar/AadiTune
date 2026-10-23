@@ -14,6 +14,7 @@ rootProject.name = "InnerTune"
 include(":app")
 include(":innertube")
 include(":jamendo")
+include(":audius")
 include(":kugou")
 include(":lrclib")
 include(":material-color-utilities")
