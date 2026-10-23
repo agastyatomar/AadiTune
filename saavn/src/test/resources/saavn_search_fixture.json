@@ -1,0 +1,30 @@
+{"success": true, "data": {"total": 2, "start": 0, "results": [
+    {
+        "id": "9tFRKr1K",
+        "name": "Synth Sunrise",
+        "year": "2023",
+        "duration": "214",
+        "primaryArtists": "NovaWave",
+        "album": {"id": "ALB1", "name": "Neon Nights",
+                  "image": [{"quality": "150x150", "link": "https://img.saavncdn.com/a150.jpg"},
+                            {"quality": "500x500", "link": "https://img.saavncdn.com/a500.jpg"}]},
+        "downloadUrl": [{"quality": "48kbps", "link": "https://aac.saavncdn.com/9t/48.mp4"},
+                        {"quality": "128kbps", "link": "https://aac.saavncdn.com/9t/128.mp4"},
+                        {"quality": "320kbps", "link": "https://aac.saavncdn.com/9t/320.mp4"}],
+        "image": [{"quality": "150x150", "link": "https://img.saavncdn.com/a150.jpg"},
+                  {"quality": "500x500", "link": "https://img.saavncdn.com/a500.jpg"}],
+        "hasLyrics": true, "language": "english", "explicitContent": "false"
+    },
+    {
+        "id": "Q8yVt6uY",
+        "name": "Night Drive (legacy fields)",
+        "year": "2019",
+        "duration": "45",
+        "primaryArtists": "Unknown Artist",
+        "album": {"id": "ALB2", "name": "Releases",
+                  "image": null},
+        "downloadUrl": [{"quality": "128kbps", "link": "https://aac.saavncdn.com/q8/128.mp4"}],
+        "image": [{"quality": "500x500", "link": "https://img.saavncdn.com/q8-500.jpg"}],
+        "hasLyrics": false, "language": "hindi", "explicitContent": "true"
+    }
+]}}

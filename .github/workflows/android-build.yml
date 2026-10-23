@@ -40,6 +40,9 @@ jobs:
       - name: Real-user playback tests (impl. of MusicService resolver, live network)
         run: sh gradlew :innertube:test --tests "com.zionhuang.innertube.PlaybackRealUserTest" --no-configuration-cache
 
+      - name: Provider unit tests (Jamendo + YouTube Data API + format selection, fixtures only)
+        run: sh gradlew :jamendo:test :audius:test :saavn:test :innertube:test --tests "com.zionhuang.innertube.models.response.AudioFormatSelectionTest" --tests "com.zionhuang.innertube.models.response.YouTubeDataSearchParsingTest" --no-configuration-cache
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4

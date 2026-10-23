@@ -1,0 +1,77 @@
+{
+  "_meta": "FIXTURE ONLY - documented shape of YouTube Data API v3 search (https://developers.google.com/youtube/v3/docs/search#response). Placeholder ids/titles; never used as production data.",
+  "nextPageToken": "CAUQAA",
+  "regionCode": "US",
+  "pageInfo": {
+    "totalResults": 1000000,
+    "resultsPerPage": 25
+  },
+  "items": [
+    {
+      "kind": "youtube#searchResult",
+      "etag": "_fixture_etag_1_",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "dQw4w9WgXcQ"
+      },
+      "snippet": {
+        "publishedAt": "2026-01-01T00:00:00Z",
+        "channelId": "UCuAXFqc_blqnsHeF4GuestA",
+        "title": "Test Song Title",
+        "description": "You got me, the unit-tested",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.invalid/mqdefault.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://example.invalid/mqdefault320.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://example.invalid/mqdefault480.jpg",
+            "width": 480,
+            "height": 360
+          }
+        },
+        "channelTitle": "Test Channel",
+        "liveBroadcastContent": "none"
+      },
+      "contentDetails": {
+        "duration": "PT3M33S",
+        "definition": "hd",
+        "caption": "false"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "etag": "_fixture_etag_2_",
+      "id": {
+        "kind": "youtube#video",
+        "videoId": "AnotherPlaceholderId"
+      },
+      "snippet": {
+        "publishedAt": "2026-02-01T00:00:00Z",
+        "channelId": "UCuAXFqc_blqnsHeF4GuestB",
+        "title": "Second Fixture Entry",
+        "description": "about playlists and things",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.invalid/second.jpg",
+            "width": 120,
+            "height": 90
+          }
+        },
+        "channelTitle": "Second Channel",
+        "liveBroadcastContent": "live"
+      },
+      "contentDetails": {
+        "duration": "P0D",
+        "definition": "sd",
+        "caption": "false"
+      }
+    }
+  ]
+}

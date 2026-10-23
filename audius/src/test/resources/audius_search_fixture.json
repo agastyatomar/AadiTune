@@ -1,0 +1,23 @@
+{"data": [
+    {
+        "id": "V4uW99",
+        "title": "Synth Sunrise",
+        "user": {"name": "NovaWave"},
+        "playback_seconds": 214,
+        "duration": 214000,
+        "artwork": {"150x150": "https://host.example/a150.jpg", "480x480": "https://host.example/a480.jpg"},
+        "play_count": 1200,
+        "genre": "Electronic",
+        "is_streamable": true,
+        "permalink": "/novawave/synth-sunrise"
+    },
+    {
+        "id": "Q7zT2",
+        "title": "Night Drive (legacy fields)",
+        "user": {"name": "Unknown Artist"},
+        "duration": 45000,
+        "artwork": null,
+        "play_count": 3,
+        "genre": "Pop"
+    }
+]}

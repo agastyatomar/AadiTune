@@ -12,6 +12,7 @@ import com.zionhuang.innertube.models.SearchSuggestions
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
+import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_MUSIC
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_VR
 import com.zionhuang.innertube.models.YouTubeClient.Companion.IOS
@@ -21,6 +22,7 @@ import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.innertube.models.getContinuation
 import com.zionhuang.innertube.models.oddElements
 import com.zionhuang.innertube.models.response.AccountMenuResponse
+import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.BrowseResponse
 import com.zionhuang.innertube.models.response.GetQueueResponse
 import com.zionhuang.innertube.models.response.GetSearchSuggestionsResponse
@@ -428,27 +430,30 @@ object YouTube {
             }
     }
 
-    suspend fun player(videoId: String, playlistId: String? = null): Result<PlayerResponse> = runCatching {
-        var playerResponse: PlayerResponse
-        if (this.cookie != null) { // if logged in: try ANDROID_MUSIC client first because IOS client does not play age restricted songs
-            playerResponse = innerTube.player(ANDROID_MUSIC, videoId, playlistId).body<PlayerResponse>()
-            if (playerResponse.playabilityStatus.status == "OK") {
+    suspend fun player(
+        videoId: String,
+        playlistId: String? = null,
+        clientOrder: List<YouTubeClient>? = null,
+    ): Result<PlayerResponse> = runCatching {
+        var playerResponse: PlayerResponse? = null
+        // Client order is pluggable: the playback resolver probes signed stream urls
+        // and re-enters this chain with a different order when the top client's urls
+        // are rejected by the CDN (observed: ANDROID_MUSIC now requires additional
+        // attestation tokens; IOS/ANDROID_VR serve open urls).
+        val order = when {
+            clientOrder != null -> clientOrder
+            this.cookie != null -> listOf(ANDROID_MUSIC, IOS, ANDROID_VR) // logged in: ANDROID_MUSIC first because IOS does not play age restricted songs
+            else -> listOf(IOS, ANDROID_VR)
+        }
+        for (client in order) {
+            playerResponse = innerTube.player(client, videoId, playlistId).body<PlayerResponse>()
+            if (playerResponse.playabilityStatus.status == "OK" && AudioFormatSelection.hasFullLengthAudio(playerResponse)) {
                 return@runCatching playerResponse
             }
         }
-        // IOS client serves full-length streams for most content without extra tokens.
-        playerResponse = innerTube.player(IOS, videoId, playlistId).body<PlayerResponse>()
-        if (playerResponse.playabilityStatus.status == "OK") {
-            return@runCatching playerResponse
-        }
-        // ANDROID_VR does not require attribution/attestation tokens and serves direct stream URLs.
-        playerResponse = innerTube.player(ANDROID_VR, videoId, playlistId).body<PlayerResponse>()
-        if (playerResponse.playabilityStatus.status == "OK") {
-            return@runCatching playerResponse
-        }
         // TVHTML5 + Piped fallback removed: TVHTML5 is rejected server-side and the Piped
         // instances return 403 as of 2026. Returning the most informative response instead.
-        playerResponse
+        playerResponse ?: error("No client produced a player response")
     }
 
     suspend fun next(endpoint: WatchEndpoint, continuation: String? = null): Result<NextResult> = runCatching {

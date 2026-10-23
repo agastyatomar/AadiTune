@@ -14,6 +14,8 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.response.AudioFormatSelection
+import com.zionhuang.saavn.Saavn
 import com.zionhuang.music.constants.AudioQuality
 import com.zionhuang.music.constants.AudioQualityKey
 import com.zionhuang.music.db.MusicDatabase
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.TimeoutCancellationException
 import okhttp3.OkHttpClient
 import java.util.concurrent.Executor
 import javax.inject.Inject
@@ -44,7 +47,6 @@ class DownloadUtil @Inject constructor(
 ) {
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.HIGH)
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
             .setCache(playerCache)
@@ -57,20 +59,64 @@ class DownloadUtil @Inject constructor(
             )
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
+
+        // Saavn is the OFFLINE-capable provider: its official full-length MP3s
+        // carry no CDN byte cap, so the download flow streams the whole file and
+        // saves it in the app library (no subrange chopping needed either).
+        if (mediaId.startsWith(MusicService.SAAVN_MEDIA_ID_PREFIX)) {
+            val streamUrl = runBlocking(Dispatchers.IO) {
+                runCatching {
+                    kotlinx.coroutines.withTimeout(20_000L) {
+                        Saavn.streamUrl(mediaId.removePrefix(MusicService.SAAVN_MEDIA_ID_PREFIX))
+                    }
+                }
+            }.getOrElse { throwable ->
+                throw PlaybackException(
+                    "Download failed: ${throwable.message ?: "Saavn stream resolution"}",
+                    throwable,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR
+                )
+            }
+            return@Factory dataSpec.withUri(streamUrl.toUri())
+        }
+
+        // Free/open providers (Jamendo + Audius) are never download queue items:
+        // official licence terms restrict redistribution and the download flow is
+        // YouTube-id oriented.
+        if (mediaId.startsWith(MusicService.JAMENDO_MEDIA_ID_PREFIX) ||
+            mediaId.startsWith(MusicService.AUDIUS_MEDIA_ID_PREFIX)
+        ) {
+            throw PlaybackException(
+                "Streaming only - downloads for the free provider are not supported",
+                null,
+                PlaybackException.ERROR_CODE_REMOTE_ERROR
+            )
+        }
+
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
         if (playerCache.isCached(mediaId, dataSpec.position, length)) {
             return@Factory dataSpec
         }
 
-        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-            return@Factory dataSpec.withUri(it.first.toUri())
-        }
-
         val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        val playerResponse = runBlocking(Dispatchers.IO) {
-            YouTube.player(mediaId)
-        }.getOrThrow()
+        val playerResponse = runCatching {
+            runBlocking(Dispatchers.IO) {
+                kotlinx.coroutines.withTimeout(20_000L) {
+                    YouTube.player(mediaId).getOrThrow()
+                }
+            }
+        }.getOrElse { throwable ->
+            if (throwable is TimeoutCancellationException) {
+                throw PlaybackException(
+                    "Resolving stream timed out",
+                    throwable,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                )
+            }
+            throw if (throwable is PlaybackException) throwable
+            else PlaybackException(throwable.message ?: "Resolution failure", throwable, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+        }
         if (playerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         }
@@ -80,12 +126,19 @@ class DownloadUtil @Inject constructor(
             throw PlaybackException("Live streams cannot be downloaded", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         }
 
+        val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
+        val audioCandidates = streamingData.adaptiveFormats
+            .filter { it.isAudio && it.url != null }
         val format = (
             if (playedFormat != null) {
-                streamingData.adaptiveFormats.find { it.itag == playedFormat.itag }
+                // Reject preview-sized formats that a provider returned for a full track.
+                audioCandidates.find { it.itag == playedFormat.itag }
+                    ?.takeUnless { AudioFormatSelection.isDefinitelyPreview(it, durationSeconds) }
             } else {
-                streamingData.adaptiveFormats
-                    .filter { it.isAudio && it.url != null }
+                // Prefer full-length formats: reject 30-second "sample" responses.
+                val fullLength =
+                    audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
+                (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
                     .maxByOrNull {
                         it.bitrate * when (audioQuality) {
                             AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
@@ -117,8 +170,12 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        songUrlCache[mediaId] = rangedFormat.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
-        dataSpec.withUri(rangedFormat.url!!.toUri())
+        // Bounded full-tail range for downloads as well (logcat evidence shows the
+        // CDN rejects open-ended ranges and frequency-caps repeated span opens);
+        // one bounded read fills the download cache completely.
+        val downloadBytes = rangedFormat.contentLength!!
+        val downloadTailBytes = (downloadBytes - dataSpec.position).coerceIn(1L, downloadBytes)
+        dataSpec.withUri(rangedFormat.url!!.toUri()).subrange(0L, downloadTailBytes)
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager = DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {

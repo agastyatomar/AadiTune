@@ -26,6 +26,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
@@ -53,7 +54,13 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
+import com.zionhuang.innertube.models.YouTubeClient
+import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.PlayerResponse
+import com.zionhuang.audius.Audius
+import com.zionhuang.saavn.Saavn
+import com.zionhuang.jamendo.Jamendo
+import com.zionhuang.jamendo.NotConfiguredException
 import com.zionhuang.music.MainActivity
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AudioNormalizationKey
@@ -104,6 +111,7 @@ import com.zionhuang.music.utils.reportException
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import timber.log.Timber
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -122,8 +130,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.net.ConnectException
@@ -178,7 +190,6 @@ class MusicService : MediaLibraryService(),
     lateinit var playerCache: SimpleCache
 
     /** Stream URL cache: mediaId to (url, absolute expiry millis) */
-    private val songUrlCache = mutableMapOf<String, Pair<String, Long>>()
 
     @Inject
     @DownloadCache
@@ -572,6 +583,9 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayerError(error: PlaybackException) {
         val mediaId = player.currentMediaItem?.mediaId
+        // No sensitive data here: provider error code, media id and the playback
+        // position - enough to diagnose mid-play stops (e.g. ~30s truncation).
+        Timber.w("playback-error: code=%d positionMs=%d mediaId=%s", error.errorCode, player.currentPosition, mediaId)
         // Live streams cannot be resolved unauthenticated: don't burn retries, just skip on.
         if (error.errorCode == ERROR_CODE_LIVE_UNSUPPORTED) {
             if (isInternetAvailable(this) && player.hasNextMediaItem()) {
@@ -581,11 +595,20 @@ class MusicService : MediaLibraryService(),
             }
             return
         }
+        // Truncation guards (preview-sized format) are not transient: retrying the same
+        // item would loop on the same limitation, so move on like the live case.
+        if (error.errorCode == ERROR_CODE_PREVIEW_ONLY) {
+            if (isInternetAvailable(this) && player.hasNextMediaItem()) {
+                player.seekToNext()
+                player.prepare()
+                player.playWhenReady = true
+            }
+            return
+        }
         // Purge the cached stream URL / partially cached audio of the failing item so that
         // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
-        mediaId?.let { id ->
-            songUrlCache.remove(id)
-            runCatching { playerCache.removeResource(id) }
+            mediaId?.let { id ->
+                runCatching { playerCache.removeResource(id) }
             // Silently retry the same item with a fresh stream URL a few times before giving up.
             val attempts = streamRetryAttempts[id] ?: 0
             if (attempts < 2) {
@@ -642,87 +665,295 @@ class MusicService : MediaLibraryService(),
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            if (downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1) ||
-                playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
+            // Jamendo (free Creative Commons catalogue): ids are namespaced "jamendo:<trackId>".
+            // Never routed through the YouTube/InnerTube resolution below.
+            if (mediaId.startsWith(JAMENDO_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX))
+                        }
+                    }
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        when {
+                            throwable is NotConfiguredException -> getString(R.string.jamendo_not_configured)
+                            else -> throwable.message?.takeIf { it.isNotBlank() } ?: getString(R.string.error_unknown)
+                        },
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                // Official Jamendo stream URLs point at a full, CC-licensed file and
+                // do not expire; no subrange fetching needed.
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
+            // Audius (open catalogue from public-apis): ids are "audius:<trackId>".
+            // Streams are the provider's own redirect endpoints serving the full file
+            // to anyone - no auth, no subrange, no key required.
+            if (mediaId.startsWith(AUDIUS_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Audius.streamUrl(mediaId.removePrefix(AUDIUS_MEDIA_ID_PREFIX))
+                        }
+                    }
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        throwable.message?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.error_unknown),
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
+            // Saavn (saavn.dev public API): ids are "saavn:<trackId>". Official
+            // full-length MP3 streams; no YouTube byte cap applies, so the format
+            // selection machinery below is bypassed entirely.
+            if (mediaId.startsWith(SAAVN_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    runCatching {
+                        withTimeout(RESOLUTION_TIMEOUT_MS) {
+                            Saavn.streamUrl(mediaId.removePrefix(SAAVN_MEDIA_ID_PREFIX))
+                        }
+                    }
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        throwable.message?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.error_unknown),
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
+            // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
+            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+
+            // Only serve data through the cache shortcut when the cache PROVABLY covers
+            // this whole open. Unresolved DataSpecs carry the raw media id as their URI,
+            // which is not a playable source - serving them beyond the cached span was a
+            // root cause of playback stopping at the cache boundary (~32s of 512KB opus).
+            val openLength: Long? = when {
+                dataSpec.length >= 0 -> dataSpec.length
+                (playedFormat?.contentLength ?: 0) > 0 -> playedFormat!!.contentLength - dataSpec.position
+                else -> null
+            }
+            if (openLength != null && openLength > 0 &&
+                (downloadCache.isCached(mediaId, dataSpec.position, openLength) ||
+                    playerCache.isCached(mediaId, dataSpec.position, openLength))
             ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.first.toUri())
+            // NOTE: the old "reuse remembered stream URL" shortcut is intentionally
+            // gone. Live logcat evidence (HTTP 403 on the second DataSpec open at the
+            // 512KB boundary) proved signed CDN urls are effectively one-shot: the
+            // follow-up ranged open on the SAME url fails with 403, which froze
+            // playback at ~28s. Every open now gets its own freshly resolved url,
+            // and the url itself is probed before it is served (see below).
+            Timber.w("resolve: id=%s pos=%d -> resolving player response", mediaId, dataSpec.position)
+            resolvePlaybackSpec(mediaId, dataSpec)
+        }
+    }
+
+    /**
+     * Cheap ranged probe (2 bytes) that verifies a signed url is actually accepted
+     * by the CDN before we hand it to the loader. The url-production client may be
+     * missing attestation in a given session; probing keeps that failure from being
+     * delivered to the user as a dead player.
+     */
+    private fun probeStreamUrl(url: String): Boolean = try {
+        val request = Request.Builder().url(url).header("Range", "bytes=0-1").build()
+        val client = OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .build()
+        val code = client.newCall(request).execute().use { it.code }
+        Timber.i("probe: code=%d url-host=%s", code, url.substringBefore('/', "https://"))
+        when (code) {
+            in 200..299 -> true
+            else -> false
+        }
+    } catch (e: Exception) {
+        Timber.w("probe: request failed: %s", e.javaClass.simpleName + " " + (e.message ?: ""))
+        false
+    }
+
+    /**
+     * Resolve a fresh playable source for the given YouTube media id and return the
+     * served DataSpec. Each attempt walks an ordered list of InnerTube clients; when
+     * the produced url fails the probe, the next order (attestation-free clients)
+     * is tried. Errors map to honest PlaybackExceptions as before.
+     */
+    private fun resolvePlaybackSpec(mediaId: String, dataSpec: DataSpec): DataSpec {
+        val defaultOrder = if (YouTube.cookie != null) {
+            listOf(YouTubeClient.ANDROID_MUSIC, YouTubeClient.IOS, YouTubeClient.ANDROID_VR)
+        } else {
+            listOf(YouTubeClient.IOS, YouTubeClient.ANDROID_VR)
+        }
+        val clientOrders = buildList {
+            add(defaultOrder)
+            if (defaultOrder.first() != YouTubeClient.IOS) {
+                add(listOf(YouTubeClient.IOS, YouTubeClient.ANDROID_VR))
             }
-            // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
-            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-            val playerResponse = runBlocking(Dispatchers.IO) {
-                YouTube.player(mediaId)
+        }
+
+        var lastError: Throwable? = null
+        var playabilityReason: String? = null
+        for ((orderIndex, order) in clientOrders.withIndex()) {
+            val playerResponse = runCatching {
+                runBlocking(Dispatchers.IO) {
+                    withTimeout(RESOLUTION_TIMEOUT_MS) {
+                        YouTube.player(mediaId, clientOrder = order).getOrThrow()
+                    }
+                }
             }.getOrElse { throwable ->
-                when (throwable) {
-                    is ConnectException, is UnknownHostException -> {
-                        throw PlaybackException(getString(R.string.error_no_internet), throwable, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-                    }
+                if (orderIndex == clientOrders.lastIndex) {
+                    when (throwable) {
+                        is TimeoutCancellationException -> {
+                            Timber.w("resolve: timed out after %dms", RESOLUTION_TIMEOUT_MS)
+                            throw PlaybackException(
+                                getString(R.string.error_timeout),
+                                throwable,
+                                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                            )
+                        }
 
-                    is SocketTimeoutException -> {
-                        throw PlaybackException(getString(R.string.error_timeout), throwable, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
-                    }
+                        is ConnectException, is UnknownHostException ->
+                            throw PlaybackException(
+                                getString(R.string.error_no_internet),
+                                throwable,
+                                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                            )
 
-                    else -> throw PlaybackException(getString(R.string.error_unknown), throwable, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+                        is SocketTimeoutException ->
+                            throw PlaybackException(
+                                getString(R.string.error_timeout),
+                                throwable,
+                                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                            )
+
+                        else -> throw PlaybackException(
+                            getString(R.string.error_unknown),
+                            throwable,
+                            PlaybackException.ERROR_CODE_REMOTE_ERROR
+                        )
+                    }
+                } else {
+                    Timber.w("resolve: order %d errored (%s), trying next", orderIndex, throwable.message)
+                    lastError = throwable
+                    null
                 }
             }
+
+            if (playerResponse == null) continue
+
             if (playerResponse.playabilityStatus.status != "OK") {
-                throw PlaybackException(
-                    playerResponse.playabilityStatus.reason ?: getString(R.string.error_unknown),
-                    null,
-                    PlaybackException.ERROR_CODE_REMOTE_ERROR
-                )
+                playabilityReason = playerResponse.playabilityStatus.reason
+                if (orderIndex == clientOrders.lastIndex) {
+                    throw PlaybackException(
+                        playabilityReason ?: getString(R.string.error_unknown),
+                        null,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                continue
             }
             if (playerResponse.isLive) {
                 // Unauthenticated InnerTube clients cannot resolve live streams; fail cleanly
                 // instead of crashing on missing contentLength/format fields further below.
                 throw PlaybackException(getString(R.string.error_live_unsupported), null, ERROR_CODE_LIVE_UNSUPPORTED)
             }
-            val streamingData = playerResponse.streamingData
-                ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+            val streamingData: PlayerResponse.StreamingData? = playerResponse.streamingData
+            if (streamingData == null) {
+                if (orderIndex == clientOrders.lastIndex) {
+                    throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+                }
+                continue
+            }
 
-            val format =
-                if (playedFormat != null) {
-                    streamingData.adaptiveFormats.find {
-                        // Use itag to identify previously played format
-                        it.itag == playedFormat.itag
+            val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
+            val audioCandidates = streamingData.adaptiveFormats.filter { it.isAudio && it.url != null }
+            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+
+            var format: PlayerResponse.StreamingData.Format? = null
+            if (playedFormat != null) {
+                format = audioCandidates.find { it.itag == playedFormat.itag }
+                    ?.takeUnless { AudioFormatSelection.isFullLength(it, durationSeconds) == false }
+            }
+            if (format == null) {
+                val fullLength =
+                    audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
+                format = (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
+                    .maxByOrNull {
+                        it.bitrate * when (audioQuality) {
+                            AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
+                            AudioQuality.HIGH -> 1
+                            AudioQuality.LOW -> -1
+                        } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
                     }
-                } else {
-                    streamingData.adaptiveFormats
-                        .filter { it.isAudio && it.url != null }
-                        .maxByOrNull {
-                            it.bitrate * when (audioQuality) {
-                                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                                AudioQuality.HIGH -> 1
-                                AudioQuality.LOW -> -1
-                            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-                        }
-                }.takeIf { it?.url != null }
-                    ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+            }
+            if (format?.url == null || format?.contentLength == null) {
+                if (orderIndex == clientOrders.lastIndex) {
+                    throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+                }
+                continue
+            }
+            val playableFormat = format!!
+
+            if (AudioFormatSelection.isDefinitelyPreview(playableFormat, durationSeconds)) {
+                lastError = PlaybackException(getString(R.string.error_preview_only), null, ERROR_CODE_PREVIEW_ONLY)
+                if (orderIndex == clientOrders.lastIndex) throw lastError
+                continue
+            }
+
+            Timber.w(
+                "resolve: order=%d format itag=%d len=%d dur=%s",
+                orderIndex, playableFormat.itag, playableFormat.contentLength, durationSeconds,
+            )
+
+            if (!probeStreamUrl(playableFormat.url!!)) {
+                lastError = PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+                if (orderIndex == clientOrders.lastIndex) throw lastError
+                continue
+            }
 
             database.query {
                 upsert(
                     FormatEntity(
                         id = mediaId,
-                        itag = format.itag,
-                        mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                        bitrate = format.bitrate,
-                        sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength ?: -1L,
+                        itag = playableFormat.itag,
+                        mimeType = playableFormat.mimeType.split(";")[0],
+                        codecs = playableFormat.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                        bitrate = playableFormat.bitrate,
+                        sampleRate = playableFormat.audioSampleRate,
+                        contentLength = playableFormat.contentLength ?: -1L,
                         loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
                     )
                 )
             }
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-            songUrlCache[mediaId] = format.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
-            dataSpec.withUri(format.url!!.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            // Bounded full-tail range: one bounded open covers the WHOLE remaining
+            // file. Logcat evidence at every stage:
+            //   - open-ended "bytes=0-" ranges are rejected with HTTP 403;
+            //   - bounded ranges are accepted (206) but a new open every ~1s
+            //     (the old 512KB span chain) trips the CDN request-frequency cap
+            //     and playback dies around ~1.3MB (~52s of audio).
+            // A single bounded read from the current position to EOF matches one
+            // normal CDN session pattern and plays the COMPLETE song. It also
+            // fully fills the player cache, making the track effectively offline.
+            val contentBytes = playableFormat.contentLength!!
+            val tailBytes = (contentBytes - dataSpec.position).coerceIn(1L, contentBytes)
+            return dataSpec.withUri(playableFormat.url!!.toUri()).subrange(0L, tailBytes)
         }
+        throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
     }
 
     private fun createMediaSourceFactory() =
@@ -832,7 +1063,14 @@ class MusicService : MediaLibraryService(),
         const val NOTIFICATION_ID = 888
         const val ERROR_CODE_NO_STREAM = 1000001
         const val ERROR_CODE_LIVE_UNSUPPORTED = 1000002
+        const val ERROR_CODE_PREVIEW_ONLY = 1000003
+        const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
+        const val AUDIUS_MEDIA_ID_PREFIX = "audius:"
+        const val SAAVN_MEDIA_ID_PREFIX = "saavn:"
         const val CHUNK_LENGTH = 512 * 1024L
+
+        /** Resolver network work must never hang the loader thread silently. */
+        const val RESOLUTION_TIMEOUT_MS = 20_000L
         const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     }
 }

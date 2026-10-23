@@ -33,6 +33,9 @@ import com.zionhuang.music.constants.EnableKugouKey
 import com.zionhuang.music.constants.EnableLrcLibKey
 import com.zionhuang.music.constants.HideExplicitKey
 import com.zionhuang.music.constants.InnerTubeCookieKey
+import com.zionhuang.music.constants.UseLoginForBrowse
+import com.zionhuang.music.constants.JamendoClientIdKey
+import com.zionhuang.music.constants.YouTubeDataApiKeyKey
 import com.zionhuang.music.constants.LanguageCodeToName
 import com.zionhuang.music.constants.ProxyEnabledKey
 import com.zionhuang.music.constants.ProxyTypeKey
@@ -64,6 +67,11 @@ fun ContentSettings(
     val (proxyEnabled, onProxyEnabledChange) = rememberPreference(key = ProxyEnabledKey, defaultValue = false)
     val (proxyType, onProxyTypeChange) = rememberEnumPreference(key = ProxyTypeKey, defaultValue = Proxy.Type.HTTP)
     val (proxyUrl, onProxyUrlChange) = rememberPreference(key = ProxyUrlKey, defaultValue = "host:port")
+
+    val (jamendoClientId, onJamendoClientIdChange) = rememberPreference(key = JamendoClientIdKey, defaultValue = "")
+    val (youTubeDataApiKey, onYouTubeDataApiKeyChange) = rememberPreference(key = YouTubeDataApiKeyKey, defaultValue = "")
+    val (innertubeCookie, onInnerTubeCookieChange) = rememberPreference(key = InnerTubeCookieKey, defaultValue = "")
+    val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(key = UseLoginForBrowse, defaultValue = false)
 
 
     Column(
@@ -146,6 +154,27 @@ fun ContentSettings(
                 )
             }
         }
+
+        PreferenceGroupTitle(
+            title = "YOUTUBE ACCOUNT"
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.use_login_for_browse)) },
+            icon = { Icon(painterResource(R.drawable.person), null) },
+            checked = useLoginForBrowse,
+            onCheckedChange = onUseLoginForBrowseChange
+        )
+
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.yt_login_cookie)) },
+            description = stringResource(R.string.yt_login_cookie_summary)
+        )
+        EditTextPreference(
+            title = { Text(stringResource(R.string.yt_login_cookie)) },
+            value = innertubeCookie.ifEmpty { stringResource(R.string.jamendo_client_id_missing) },
+            onValueChange = { onInnerTubeCookieChange(it.trim()) }
+        )
     }
 
     TopAppBar(

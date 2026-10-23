@@ -25,8 +25,8 @@ android {
         applicationId = "com.agastyatomar.aaditune"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.2.0"
+        versionCode = 16
+        versionName = "1.3.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -168,6 +168,9 @@ dependencies {
     implementation(projects.innertube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
+    implementation(projects.jamendo)
+    implementation(projects.audius)
+    implementation(projects.saavn)
 
     implementation(libs.ktor.client.core)
 

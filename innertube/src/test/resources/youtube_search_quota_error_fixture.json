@@ -1,0 +1,14 @@
+{
+  "_meta": "FIXTURE ONLY - documented YouTube Data API v3 error envelope shape.",
+  "error": {
+    "code": 403,
+    "message": "The request cannot be completed because you have exceeded your quota.",
+    "errors": [
+      {
+        "message": "The request cannot be completed because you have exceeded your quota.",
+        "domain": "youtube.quota",
+        "reason": "quotaExceeded"
+      }
+    ]
+  }
+}
