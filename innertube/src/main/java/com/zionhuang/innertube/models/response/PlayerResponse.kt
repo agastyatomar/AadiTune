@@ -74,4 +74,12 @@ data class PlayerResponse(
         val viewCount: String,
         val thumbnail: Thumbnails,
     )
+
+    /**
+     * Live streams report lengthSeconds "0" (or abnormally huge values for VODs, never 0).
+     * Unauthenticated InnerTube clients cannot resolve live streams server-side, so callers
+     * should reject them gracefully instead of crashing on missing fields (contentLength, urls).
+     */
+    val isLive: Boolean
+        get() = videoDetails?.lengthSeconds == "0"
 }

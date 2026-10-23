@@ -203,6 +203,7 @@
     <string name="error_no_internet">No network connection</string>
     <string name="error_timeout">Timeout</string>
     <string name="error_unknown">Unknown error</string>
+    <string name="error_live_unsupported">Live streams aren\'t supported yet</string>
 
     <!-- Player action -->
     <string name="action_like">Like</string>

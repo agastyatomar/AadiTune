@@ -571,9 +571,18 @@ class MusicService : MediaLibraryService(),
     private val streamRetryAttempts = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     override fun onPlayerError(error: PlaybackException) {
+        val mediaId = player.currentMediaItem?.mediaId
+        // Live streams cannot be resolved unauthenticated: don't burn retries, just skip on.
+        if (error.customCode == ERROR_CODE_LIVE_UNSUPPORTED) {
+            if (isInternetAvailable(this) && player.hasNextMediaItem()) {
+                player.seekToNext()
+                player.prepare()
+                player.playWhenReady = true
+            }
+            return
+        }
         // Purge the cached stream URL / partially cached audio of the failing item so that
         // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
-        val mediaId = player.currentMediaItem?.mediaId
         mediaId?.let { id ->
             songUrlCache.remove(id)
             runCatching { playerCache.removeResource(id) }
@@ -662,26 +671,38 @@ class MusicService : MediaLibraryService(),
                 }
             }
             if (playerResponse.playabilityStatus.status != "OK") {
-                throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+                throw PlaybackException(
+                    playerResponse.playabilityStatus.reason ?: getString(R.string.error_unknown),
+                    null,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR
+                )
             }
+            if (playerResponse.isLive) {
+                // Unauthenticated InnerTube clients cannot resolve live streams; fail cleanly
+                // instead of crashing on missing contentLength/format fields further below.
+                throw PlaybackException(getString(R.string.error_live_unsupported), null, ERROR_CODE_LIVE_UNSUPPORTED)
+            }
+            val streamingData = playerResponse.streamingData
+                ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
 
             val format =
                 if (playedFormat != null) {
-                    playerResponse.streamingData?.adaptiveFormats?.find {
+                    streamingData.adaptiveFormats.find {
                         // Use itag to identify previously played format
                         it.itag == playedFormat.itag
                     }
                 } else {
-                    playerResponse.streamingData?.adaptiveFormats
-                        ?.filter { it.isAudio }
-                        ?.maxByOrNull {
+                    streamingData.adaptiveFormats
+                        .filter { it.isAudio && it.url != null }
+                        .maxByOrNull {
                             it.bitrate * when (audioQuality) {
                                 AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
                                 AudioQuality.HIGH -> 1
                                 AudioQuality.LOW -> -1
                             } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
                         }
-                } ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+                }.takeIf { it?.url != null }
+                    ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
 
             database.query {
                 upsert(
@@ -692,14 +713,14 @@ class MusicService : MediaLibraryService(),
                         codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
                         bitrate = format.bitrate,
                         sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
+                        contentLength = format.contentLength ?: -1L,
                         loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
                     )
                 )
             }
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-            songUrlCache[mediaId] = format.url!! to (System.currentTimeMillis() + playerResponse.streamingData!!.expiresInSeconds * 1000L)
+            songUrlCache[mediaId] = format.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
             dataSpec.withUri(format.url!!.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
         }
     }
@@ -810,6 +831,7 @@ class MusicService : MediaLibraryService(),
         const val CHANNEL_ID = "music_channel_01"
         const val NOTIFICATION_ID = 888
         const val ERROR_CODE_NO_STREAM = 1000001
+        const val ERROR_CODE_LIVE_UNSUPPORTED = 1000002
         const val CHUNK_LENGTH = 512 * 1024L
         const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     }

@@ -63,7 +63,7 @@ class DownloadUtil @Inject constructor(
             return@Factory dataSpec
         }
 
-        songUrlCache[mediaId]?.takeIf { it.second < System.currentTimeMillis() }?.let {
+        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -74,24 +74,33 @@ class DownloadUtil @Inject constructor(
         if (playerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         }
+        val streamingData = playerResponse.streamingData
+            ?: throw PlaybackException("No stream available", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+        if (playerResponse.isLive) {
+            throw PlaybackException("Live streams cannot be downloaded", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+        }
 
-        val format =
+        val format = (
             if (playedFormat != null) {
-                playerResponse.streamingData?.adaptiveFormats?.find { it.itag == playedFormat.itag }
+                streamingData.adaptiveFormats.find { it.itag == playedFormat.itag }
             } else {
-                playerResponse.streamingData?.adaptiveFormats
-                    ?.filter { it.isAudio }
-                    ?.maxByOrNull {
+                streamingData.adaptiveFormats
+                    .filter { it.isAudio && it.url != null }
+                    .maxByOrNull {
                         it.bitrate * when (audioQuality) {
                             AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
                             AudioQuality.HIGH -> 1
                             AudioQuality.LOW -> -1
                         } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
                     }
-            }!!.let {
-                // Specify range to avoid YouTube's throttling
-                it.copy(url = "${it.url}&range=0-${it.contentLength ?: 10000000}")
             }
+        ).takeIf { it?.url != null && it.contentLength != null }
+            ?: throw PlaybackException("No stream available", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+        val rangedFormat = format.copy(
+            // Specify range to avoid YouTube's throttling
+            url = "${format.url}&range=0-${format.contentLength}"
+        )
 
         database.query {
             upsert(
@@ -102,14 +111,14 @@ class DownloadUtil @Inject constructor(
                     codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
                     bitrate = format.bitrate,
                     sampleRate = format.audioSampleRate,
-                    contentLength = format.contentLength!!,
+                    contentLength = format.contentLength ?: -1L,
                     loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
                 )
             )
         }
 
-        songUrlCache[mediaId] = format.url!! to playerResponse.streamingData!!.expiresInSeconds * 1000L
-        dataSpec.withUri(format.url!!.toUri())
+        songUrlCache[mediaId] = rangedFormat.url!! to (System.currentTimeMillis() + streamingData.expiresInSeconds * 1000L)
+        dataSpec.withUri(rangedFormat.url!!.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager = DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
