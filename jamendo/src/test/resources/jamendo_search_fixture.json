@@ -1,0 +1,44 @@
+{
+  "headers": {
+    "status": "success",
+    "code": 0,
+    "results_count": 2,
+    "next": "https://api.jamendo.com/v3.0/tracks/?search=lofi&limit=2&offset=2"
+  },
+  "results": [
+    {
+      "id": "10433",
+      "name": "Early morning",
+      "duration": 246,
+      "artist_id": "1",
+      "artist_name": "criteria73",
+      "album_name": "Unsafe horizontal reflective",
+      "album_id": "120",
+      "album_image": "https://usercontent.jamendo.com?type=album&id=120&size=300",
+      "image": "https://usercontent.jamendo.com?type=album&id=120&size=300",
+      "audio": "https://mp3l2.jamendo.com/?cid=#CLIENT_ID#&trackid=10433&format=mp31",
+      "audiodownload": "https://prod-1.storage.jamendo.com/?trackid=10433&format=mp31",
+      "audiodownload_allowed": true,
+      "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "license_desc": "Creative Commons Attribution-NonCommercial-NoDerivatives 3.0",
+      "releasedate": "2023-01-01"
+    },
+    {
+      "id": "10434",
+      "name": "Another fixture track",
+      "duration": 180,
+      "artist_id": "2",
+      "artist_name": "Example Artist",
+      "album_name": null,
+      "album_id": null,
+      "album_image": null,
+      "image": "https://usercontent.jamendo.com?type=album&id=0&size=300",
+      "audio": "https://mp3l2.jamendo.com/?cid=#CLIENT_ID#&trackid=10434&format=mp31",
+      "audiodownload": "https://prod-1.storage.jamendo.com/?trackid=10434&format=mp31",
+      "audiodownload_allowed": true,
+      "license_ccurl": "http://creativecommons.org/licenses/by/3.0/",
+      "license_desc": "Creative Commons Attribution 3.0",
+      "releasedate": "2023-01-02"
+    }
+  ]
+}

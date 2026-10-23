@@ -13,6 +13,7 @@ dependencyResolutionManagement {
 rootProject.name = "InnerTune"
 include(":app")
 include(":innertube")
+include(":jamendo")
 include(":kugou")
 include(":lrclib")
 include(":material-color-utilities")

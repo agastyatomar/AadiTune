@@ -53,7 +53,9 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
+import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.PlayerResponse
+import com.zionhuang.jamendo.Jamendo
 import com.zionhuang.music.MainActivity
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AudioNormalizationKey
@@ -581,6 +583,16 @@ class MusicService : MediaLibraryService(),
             }
             return
         }
+        // Truncation guards (preview-sized format) are not transient: retrying the same
+        // item would loop on the same limitation, so move on like the live case.
+        if (error.errorCode == ERROR_CODE_PREVIEW_ONLY) {
+            if (isInternetAvailable(this) && player.hasNextMediaItem()) {
+                player.seekToNext()
+                player.prepare()
+                player.playWhenReady = true
+            }
+            return
+        }
         // Purge the cached stream URL / partially cached audio of the failing item so that
         // the retry fetches a fresh stream instead of replaying a stale (possibly truncated) one.
         mediaId?.let { id ->
@@ -642,8 +654,41 @@ class MusicService : MediaLibraryService(),
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            if (downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1) ||
-                playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
+            // Jamendo (free Creative Commons catalogue): ids are namespaced "jamendo:<trackId>".
+            // Never routed through the YouTube/InnerTube resolution below.
+            if (mediaId.startsWith(JAMENDO_MEDIA_ID_PREFIX)) {
+                val streamUrl = runBlocking(Dispatchers.IO) {
+                    Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX))
+                }.getOrElse { throwable ->
+                    throw PlaybackException(
+                        when {
+                            throwable is Jamendo.NotConfiguredException -> getString(R.string.jamendo_not_configured)
+                            else -> throwable.message?.takeIf { it.isNotBlank() } ?: getString(R.string.error_unknown)
+                        },
+                        throwable,
+                        PlaybackException.ERROR_CODE_REMOTE_ERROR
+                    )
+                }
+                // Official Jamendo stream URLs point at a full, CC-licensed file and
+                // do not expire; no subrange fetching needed.
+                return@Factory dataSpec.withUri(streamUrl.toUri())
+            }
+
+            // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
+            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+
+            // Only serve data through the cache shortcut when the cache PROVABLY covers
+            // this whole open. Unresolved DataSpecs carry the raw media id as their URI,
+            // which is not a playable source - serving them beyond the cached span was a
+            // root cause of playback stopping at the cache boundary (~32s of 512KB opus).
+            val openLength: Long? = when {
+                dataSpec.length >= 0 -> dataSpec.length
+                (playedFormat?.contentLength ?: 0) > 0 -> playedFormat!!.contentLength - dataSpec.position
+                else -> null
+            }
+            if (openLength != null && openLength > 0 &&
+                (downloadCache.isCached(mediaId, dataSpec.position, openLength) ||
+                    playerCache.isCached(mediaId, dataSpec.position, openLength))
             ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 return@Factory dataSpec
@@ -653,8 +698,6 @@ class MusicService : MediaLibraryService(),
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
-            // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
-            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
             val playerResponse = runBlocking(Dispatchers.IO) {
                 YouTube.player(mediaId)
             }.getOrElse { throwable ->
@@ -685,15 +728,20 @@ class MusicService : MediaLibraryService(),
             val streamingData = playerResponse.streamingData
                 ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
 
+            val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
+            val audioCandidates = streamingData.adaptiveFormats.filter { it.isAudio && it.url != null }
             val format =
                 if (playedFormat != null) {
-                    streamingData.adaptiveFormats.find {
+                    audioCandidates.find {
                         // Use itag to identify previously played format
                         it.itag == playedFormat.itag
                     }
                 } else {
-                    streamingData.adaptiveFormats
-                        .filter { it.isAudio && it.url != null }
+                    // Prefer formats whose byte length matches the advertised duration: this
+                    // rejects 30-second "sample" responses for full-length tracks.
+                    val fullLength =
+                        audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
+                    (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
                         .maxByOrNull {
                             it.bitrate * when (audioQuality) {
                                 AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
@@ -701,8 +749,14 @@ class MusicService : MediaLibraryService(),
                                 AudioQuality.LOW -> -1
                             } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
                         }
-                }.takeIf { it?.url != null }
+                }.takeIf { it?.url != null && it.contentLength != null }
                     ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+
+            // Honest truncation guard: never silently play a format that can only
+            // deliver a preview-sized fraction of the track.
+            if (AudioFormatSelection.isDefinitelyPreview(format, durationSeconds)) {
+                throw PlaybackException(getString(R.string.error_preview_only), null, ERROR_CODE_PREVIEW_ONLY)
+            }
 
             database.query {
                 upsert(
@@ -832,6 +886,8 @@ class MusicService : MediaLibraryService(),
         const val NOTIFICATION_ID = 888
         const val ERROR_CODE_NO_STREAM = 1000001
         const val ERROR_CODE_LIVE_UNSUPPORTED = 1000002
+        const val ERROR_CODE_PREVIEW_ONLY = 1000003
+        const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
         const val CHUNK_LENGTH = 512 * 1024L
         const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     }

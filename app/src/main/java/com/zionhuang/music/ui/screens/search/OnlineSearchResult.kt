@@ -1,6 +1,7 @@
 package com.zionhuang.music.ui.screens.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
@@ -41,11 +42,14 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.music.LocalPlayerAwareWindowInsets
 import com.zionhuang.music.LocalPlayerConnection
+import com.zionhuang.jamendo.NotConfiguredException
+import com.zionhuang.innertube.YouTubeDataNotConfiguredException
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AppBarHeight
 import com.zionhuang.music.constants.SearchFilterHeight
 import com.zionhuang.music.extensions.togglePlayPause
 import com.zionhuang.music.models.toMediaMetadata
+import com.zionhuang.music.playback.queues.ListQueue
 import com.zionhuang.music.playback.queues.YouTubeQueue
 import com.zionhuang.music.ui.component.ChipsRow
 import com.zionhuang.music.ui.component.EmptyPlaceholder
@@ -59,6 +63,8 @@ import com.zionhuang.music.ui.menu.YouTubeArtistMenu
 import com.zionhuang.music.ui.menu.YouTubePlaylistMenu
 import com.zionhuang.music.ui.menu.YouTubeSongMenu
 import com.zionhuang.music.viewmodels.OnlineSearchViewModel
+import com.zionhuang.music.viewmodels.SearchFilterFree
+import com.zionhuang.music.viewmodels.SearchFilterYouTubeData
 import kotlinx.coroutines.launch
 
 @Composable
@@ -94,6 +100,52 @@ fun OnlineSearchResult(
     }
 
     val ytItemContent: @Composable LazyItemScope.(YTItem) -> Unit = { item: YTItem ->
+        // Jamendo (free provider) items carry a "jamendo:" namespaced id; they must
+        // not be queued through YouTube-only features such as radio playback or the
+        // YouTube song menu (like/library/radio actions would misattribute results).
+        val isFreeProviderSong = item is SongItem && item.id.startsWith("jamendo:")
+        val trailing: @Composable RowScope.() -> Unit =
+            if (isFreeProviderSong) {
+                {}
+            } else {
+                {
+                    IconButton(
+                        onClick = {
+                            menuState.show {
+                                when (item) {
+                                    is SongItem -> YouTubeSongMenu(
+                                        song = item,
+                                        navController = navController,
+                                        onDismiss = menuState::dismiss
+                                    )
+
+                                    is AlbumItem -> YouTubeAlbumMenu(
+                                        albumItem = item,
+                                        navController = navController,
+                                        onDismiss = menuState::dismiss
+                                    )
+
+                                    is ArtistItem -> YouTubeArtistMenu(
+                                        artist = item,
+                                        onDismiss = menuState::dismiss
+                                    )
+
+                                    is PlaylistItem -> YouTubePlaylistMenu(
+                                        playlist = item,
+                                        coroutineScope = coroutineScope,
+                                        onDismiss = menuState::dismiss
+                                    )
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.more_vert),
+                            contentDescription = null
+                        )
+                    }
+                }
+        }
         YouTubeListItem(
             item = item,
             isActive = when (item) {
@@ -102,49 +154,27 @@ fun OnlineSearchResult(
                 else -> false
             },
             isPlaying = isPlaying,
-            trailingContent = {
-                IconButton(
-                    onClick = {
-                        menuState.show {
-                            when (item) {
-                                is SongItem -> YouTubeSongMenu(
-                                    song = item,
-                                    navController = navController,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is AlbumItem -> YouTubeAlbumMenu(
-                                    albumItem = item,
-                                    navController = navController,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is ArtistItem -> YouTubeArtistMenu(
-                                    artist = item,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is PlaylistItem -> YouTubePlaylistMenu(
-                                    playlist = item,
-                                    coroutineScope = coroutineScope,
-                                    onDismiss = menuState::dismiss
-                                )
-                            }
-                        }
-                    }
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.more_vert),
-                        contentDescription = null
-                    )
-                }
-            },
+            trailingContent = trailing,
             modifier = Modifier
                 .clickable {
                     when (item) {
                         is SongItem -> {
                             if (item.id == mediaMetadata?.id) {
                                 playerConnection.player.togglePlayPause()
+                            } else if (isFreeProviderSong) {
+                                // Play the searched free tracks as a plain sequence; the
+                                // provider's own full-length file is streamed per track.
+                                val freeSongs = itemsPage?.items?.filterIsInstance<SongItem>()
+                                    .orEmpty()
+                                    .ifEmpty { listOf(item) }
+                                val startIndex = freeSongs.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
+                                playerConnection.playQueue(
+                                    ListQueue(
+                                        title = stringResource(R.string.queue_searched_songs),
+                                        items = freeSongs.map { it.toMediaMetadata() },
+                                        startIndex = startIndex
+                                    )
+                                )
                             } else {
                                 playerConnection.playQueue(YouTubeQueue.radio(item.toMediaMetadata()))
                             }
@@ -204,7 +234,31 @@ fun OnlineSearchResult(
                 }
             }
 
-            if (itemsPage?.items?.isEmpty() == true) {
+            if (searchFilter == SearchFilterFree && itemsPage?.items?.isEmpty() == true) {
+                item {
+                    EmptyPlaceholder(
+                        icon = R.drawable.search,
+                        text = when (val error = viewModel.freeSearchError) {
+                            is NotConfiguredException -> stringResource(R.string.jamendo_not_configured)
+                            else -> error?.message ?: stringResource(R.string.no_results_found)
+                        },
+                        modifier = Modifier.animateItem()
+                    )
+                }
+            } else if (searchFilter == SearchFilterYouTubeData && itemsPage?.items?.isEmpty() == true) {
+                item {
+                    EmptyPlaceholder(
+                        icon = R.drawable.search,
+                        text = when (val error = viewModel.youTubeDataSearchError) {
+                            is YouTubeDataNotConfiguredException -> stringResource(R.string.youtube_data_api_not_configured)
+                            is com.zionhuang.innertube.YouTubeDataApiException ->
+                                error.message ?: stringResource(R.string.no_results_found)
+                            else -> error?.message ?: stringResource(R.string.no_results_found)
+                        },
+                        modifier = Modifier.animateItem()
+                    )
+                }
+            } else if (itemsPage?.items?.isEmpty() == true) {
                 item {
                     EmptyPlaceholder(
                         icon = R.drawable.search,
@@ -233,6 +287,8 @@ fun OnlineSearchResult(
             FILTER_VIDEO to stringResource(R.string.filter_videos),
             FILTER_ALBUM to stringResource(R.string.filter_albums),
             FILTER_ARTIST to stringResource(R.string.filter_artists),
+            SearchFilterFree to stringResource(R.string.filter_name_free),
+            SearchFilterYouTubeData to stringResource(R.string.filter_name_yt_api),
             FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
             FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists)
         ),

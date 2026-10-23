@@ -147,6 +147,9 @@ val AccountNameKey = stringPreferencesKey("accountName")
 val AccountEmailKey = stringPreferencesKey("accountEmail")
 val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
 
+val JamendoClientIdKey = stringPreferencesKey("jamendoClientId")
+val YouTubeDataApiKeyKey = stringPreferencesKey("youTubeDataApiKey")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

@@ -14,6 +14,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.music.constants.AudioQuality
 import com.zionhuang.music.constants.AudioQualityKey
 import com.zionhuang.music.db.MusicDatabase
@@ -57,6 +58,17 @@ class DownloadUtil @Inject constructor(
             )
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
+
+        // Free (Jamendo) tracks are never download queue items: official licence terms
+        // restrict redistribution and the download flow is YouTube-id oriented.
+        if (mediaId.startsWith(MusicService.JAMENDO_MEDIA_ID_PREFIX)) {
+            throw PlaybackException(
+                "Streaming only - downloads for the free provider are not supported",
+                null,
+                PlaybackException.ERROR_CODE_REMOTE_ERROR
+            )
+        }
+
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
         if (playerCache.isCached(mediaId, dataSpec.position, length)) {
@@ -80,12 +92,19 @@ class DownloadUtil @Inject constructor(
             throw PlaybackException("Live streams cannot be downloaded", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         }
 
+        val durationSeconds = playerResponse.videoDetails?.lengthSeconds?.toLongOrNull()
+        val audioCandidates = streamingData.adaptiveFormats
+            .filter { it.isAudio && it.url != null }
         val format = (
             if (playedFormat != null) {
-                streamingData.adaptiveFormats.find { it.itag == playedFormat.itag }
+                // Reject preview-sized formats that a provider returned for a full track.
+                audioCandidates.find { it.itag == playedFormat.itag }
+                    ?.takeUnless { AudioFormatSelection.isDefinitelyPreview(it, durationSeconds) }
             } else {
-                streamingData.adaptiveFormats
-                    .filter { it.isAudio && it.url != null }
+                // Prefer full-length formats: reject 30-second "sample" responses.
+                val fullLength =
+                    audioCandidates.filter { AudioFormatSelection.isFullLength(it, durationSeconds) == true }
+                (fullLength.ifEmpty { audioCandidates.filter { f -> f.contentLength != null } })
                     .maxByOrNull {
                         it.bitrate * when (audioQuality) {
                             AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1

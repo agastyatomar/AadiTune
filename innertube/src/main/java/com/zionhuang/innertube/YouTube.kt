@@ -21,6 +21,7 @@ import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.innertube.models.getContinuation
 import com.zionhuang.innertube.models.oddElements
 import com.zionhuang.innertube.models.response.AccountMenuResponse
+import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.BrowseResponse
 import com.zionhuang.innertube.models.response.GetQueueResponse
 import com.zionhuang.innertube.models.response.GetSearchSuggestionsResponse
@@ -432,18 +433,18 @@ object YouTube {
         var playerResponse: PlayerResponse
         if (this.cookie != null) { // if logged in: try ANDROID_MUSIC client first because IOS client does not play age restricted songs
             playerResponse = innerTube.player(ANDROID_MUSIC, videoId, playlistId).body<PlayerResponse>()
-            if (playerResponse.playabilityStatus.status == "OK") {
+            if (playerResponse.playabilityStatus.status == "OK" && AudioFormatSelection.hasFullLengthAudio(playerResponse)) {
                 return@runCatching playerResponse
             }
         }
         // IOS client serves full-length streams for most content without extra tokens.
         playerResponse = innerTube.player(IOS, videoId, playlistId).body<PlayerResponse>()
-        if (playerResponse.playabilityStatus.status == "OK") {
+        if (playerResponse.playabilityStatus.status == "OK" && AudioFormatSelection.hasFullLengthAudio(playerResponse)) {
             return@runCatching playerResponse
         }
         // ANDROID_VR does not require attribution/attestation tokens and serves direct stream URLs.
         playerResponse = innerTube.player(ANDROID_VR, videoId, playlistId).body<PlayerResponse>()
-        if (playerResponse.playabilityStatus.status == "OK") {
+        if (playerResponse.playabilityStatus.status == "OK" && AudioFormatSelection.hasFullLengthAudio(playerResponse)) {
             return@runCatching playerResponse
         }
         // TVHTML5 + Piped fallback removed: TVHTML5 is rejected server-side and the Piped

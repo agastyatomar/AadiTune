@@ -204,6 +204,22 @@
     <string name="error_timeout">Timeout</string>
     <string name="error_unknown">Unknown error</string>
     <string name="error_live_unsupported">Live streams aren\'t supported yet</string>
+    <string name="error_preview_only">Only a preview of this song is available on this source</string>
+    <string name="jamendo_not_configured">Free music provider not configured - add a Jamendo client ID in settings</string>
+
+    <!-- Jamendo (free independent music provider) -->
+    <string name="filter_name_free">Free</string>
+    <string name="filter_name_yt_api">YT API</string>
+    <string name="jamendo_client_id">Jamendo client ID</string>
+    <string name="jamendo_client_id_summary">Enable the Free filter: generate a free client ID at dev.jamendo.com and paste it here. The key is stored locally and stays on your device.</string>
+    <string name="jamendo_client_id_missing">Not configured - tap to add</string>
+    <string name="youtube_data_api_setup_title">YouTube Data API</string>
+    <string name="youtube_data_api_key">YouTube Data API key</string>
+    <string name="youtube_data_api_key_summary">Optional: search with your own free Data API key from console.cloud.google.com. Search quota (~100 searches/day) is charged to your key; the key stays on your device.</string>
+    <string name="youtube_data_api_search_note">Search and metadata via YouTube Data API. Playback still follows YouTube\'s permitted flows.</string>
+    <string name="youtube_data_api_not_configured">Add your free YouTube Data API key in Settings > Content to use this filter</string>
+    <string name="jamendo_setup_title">Free music provider (Jamendo)</string>
+    <string name="jamendo_attribution">Free tracks provided by Jamendo</string>
 
     <!-- Player action -->
     <string name="action_like">Like</string>

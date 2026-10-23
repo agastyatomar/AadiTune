@@ -11,10 +11,14 @@ import coil.disk.DiskCache
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.kugou.KuGou
+import com.zionhuang.jamendo.Jamendo
+import com.zionhuang.innertube.YouTubeData
 import com.zionhuang.music.constants.ContentCountryKey
 import com.zionhuang.music.constants.ContentLanguageKey
 import com.zionhuang.music.constants.CountryCodeToName
 import com.zionhuang.music.constants.InnerTubeCookieKey
+import com.zionhuang.music.constants.JamendoClientIdKey
+import com.zionhuang.music.constants.YouTubeDataApiKeyKey
 import com.zionhuang.music.constants.LanguageCodeToName
 import com.zionhuang.music.constants.MaxImageCacheSizeKey
 import com.zionhuang.music.constants.ProxyEnabledKey
@@ -96,6 +100,25 @@ class App : Application(), ImageLoaderFactory {
                 .distinctUntilChanged()
                 .collect { cookie ->
                     YouTube.cookie = cookie
+                }
+        }
+        // Provider keys are user-supplied at runtime (never shipped/committed). A missing
+        // value leaves the provider disabled instead of sending invalid requests.
+        GlobalScope.launch {
+            dataStore.data
+                .map { it[JamendoClientIdKey]?.trim() }
+                .distinctUntilChanged()
+                .collect { clientId ->
+                    Jamendo.clientId = clientId?.takeIf { it.isNotBlank() }
+                }
+        }
+        GlobalScope.launch {
+            dataStore.data
+                .map { it[YouTubeDataApiKeyKey]?.trim() }
+                .distinctUntilChanged()
+                .collect { apiKey ->
+                    // Keys(json-like "&%") are passed through as-is; only blank disables.
+                    YouTubeData.apiKey = apiKey?.takeIf { it.isNotBlank() }
                 }
         }
     }
