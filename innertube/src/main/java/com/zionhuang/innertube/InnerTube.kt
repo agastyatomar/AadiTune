@@ -95,7 +95,13 @@ class InnerTube {
                 append("Referer", client.referer)
             }
             if (setLogin) {
-                cookie?.let { cookie ->
+                // Only honor cookies that actually form a usable session; a
+                // half-pasted cookie string (e.g. without a session id) must fall
+                // back to the working unauthenticated path instead of breaking
+                // playback with a half-valid Authorization header.
+                val sessionOk = listOf("SAPISID", "__Secure-3PAPISID", "APISID").any(cookieMap::containsKey) &&
+                    listOf("SID", "__Secure-3PSID", "__Secure-1PSID").any(cookieMap::containsKey)
+                if (sessionOk) cookie?.let { cookie ->
                     append("cookie", cookie)
                     if ("SAPISID" !in cookieMap) return@let
                     val currentTime = System.currentTimeMillis() / 1000
@@ -132,7 +138,11 @@ class InnerTube {
         videoId: String,
         playlistId: String?,
     ) = httpClient.post("player") {
-        ytClient(client, setLogin = true)
+        // The hot playback path must stay UNAUTHENTICATED: logged-in player calls
+        // are rejected much more aggressively (session rotation, app attestation),
+        // while anonymous player calls keep working on this device class. Account
+        // features (browse/next/menus) still use the pasted login cookie.
+        ytClient(client, setLogin = false)
         setBody(
             PlayerBody(
                 context = client.toContext(locale, visitorData).let {
