@@ -56,6 +56,7 @@ import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.response.AudioFormatSelection
 import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.jamendo.Jamendo
+import com.zionhuang.jamendo.NotConfiguredException
 import com.zionhuang.music.MainActivity
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AudioNormalizationKey
@@ -662,7 +663,7 @@ class MusicService : MediaLibraryService(),
                 }.getOrElse { throwable ->
                     throw PlaybackException(
                         when {
-                            throwable is Jamendo.NotConfiguredException -> getString(R.string.jamendo_not_configured)
+                            throwable is NotConfiguredException -> getString(R.string.jamendo_not_configured)
                             else -> throwable.message?.takeIf { it.isNotBlank() } ?: getString(R.string.error_unknown)
                         },
                         throwable,
