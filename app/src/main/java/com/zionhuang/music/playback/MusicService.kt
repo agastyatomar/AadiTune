@@ -573,7 +573,7 @@ class MusicService : MediaLibraryService(),
     override fun onPlayerError(error: PlaybackException) {
         val mediaId = player.currentMediaItem?.mediaId
         // Live streams cannot be resolved unauthenticated: don't burn retries, just skip on.
-        if (error.customCode == ERROR_CODE_LIVE_UNSUPPORTED) {
+        if (error.errorCode == ERROR_CODE_LIVE_UNSUPPORTED) {
             if (isInternetAvailable(this) && player.hasNextMediaItem()) {
                 player.seekToNext()
                 player.prepare()
