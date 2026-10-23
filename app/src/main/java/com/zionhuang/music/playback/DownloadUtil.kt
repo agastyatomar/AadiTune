@@ -149,10 +149,10 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        // Freshly resolved urls are served for the whole remaining range; reusing a
-        // previous signed url caused HTTP 403 on the next DataSpec open (observed in
-        // logcat at every 512KB boundary), so no url cache is kept here either.
-        dataSpec.withUri(rangedFormat.url!!.toUri())
+        // Bounded ranges only: the CDN rejects open-ended ranged requests on signed
+        // urls (logcat evidence) and the download spans open again with positions
+        // later in the file, each time with a freshly resolved url.
+        dataSpec.withUri(rangedFormat.url!!.toUri()).subrange(0L, MusicService.CHUNK_LENGTH)
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager = DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {

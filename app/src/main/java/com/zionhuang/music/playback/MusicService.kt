@@ -920,7 +920,11 @@ class MusicService : MediaLibraryService(),
 
             // Stream the FULL remaining file in this single open; no url caching, no
             // chunking (see notes above).
-            return dataSpec.withUri(playableFormat.url!!.toUri())
+            // The CDN accepts BOUNDED ranges only on signed urls (logcat evidence:
+            // probe "bytes=0-1" -> 206, open-ended "bytes=0-" -> 403). Cap every open
+            // to a bounded span; the next span open resolves a FRESH url (line above),
+            // so no spent/one-shot url is ever reused.
+            return dataSpec.withUri(playableFormat.url!!.toUri()).subrange(0L, CHUNK_LENGTH)
         }
         throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
     }
@@ -1035,6 +1039,7 @@ class MusicService : MediaLibraryService(),
         const val ERROR_CODE_PREVIEW_ONLY = 1000003
         const val JAMENDO_MEDIA_ID_PREFIX = "jamendo:"
         const val AUDIUS_MEDIA_ID_PREFIX = "audius:"
+        const val CHUNK_LENGTH = 512 * 1024L
 
         /** Resolver network work must never hang the loader thread silently. */
         const val RESOLUTION_TIMEOUT_MS = 20_000L
