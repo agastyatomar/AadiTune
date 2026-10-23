@@ -105,6 +105,7 @@ fun OnlineSearchResult(
         // not be queued through YouTube-only features such as radio playback or the
         // YouTube song menu (like/library/radio actions would misattribute results).
         val isFreeProviderSong = item is SongItem && item.id.startsWith("jamendo:")
+        val freeQueueTitle = stringResource(R.string.queue_searched_songs)
         val trailing: @Composable RowScope.() -> Unit =
             if (isFreeProviderSong) {
                 {}
@@ -165,14 +166,13 @@ fun OnlineSearchResult(
                             } else if (isFreeProviderSong) {
                                 // Play the searched free tracks as a plain sequence; the
                                 // provider's own full-length file is streamed per track.
-                                val queueTitle = stringResource(R.string.queue_searched_songs)
                                 val freeSongs = itemsPage?.items?.filterIsInstance<SongItem>()
                                     .orEmpty()
                                     .ifEmpty { listOf(item) }
                                 val startIndex = freeSongs.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
                                 playerConnection.playQueue(
                                     ListQueue(
-                                        title = queueTitle,
+                                        title = freeQueueTitle,
                                         items = freeSongs.map { it.toMediaMetadata().toMediaItem() },
                                         startIndex = startIndex
                                     )
