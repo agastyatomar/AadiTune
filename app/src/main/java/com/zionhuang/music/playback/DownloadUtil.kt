@@ -80,9 +80,11 @@ class DownloadUtil @Inject constructor(
         }
 
         val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        val playerResponse = runBlocking(Dispatchers.IO) {
-            kotlinx.coroutines.withTimeout(20_000L) {
-                YouTube.player(mediaId).getOrThrow()
+        val playerResponse = runCatching {
+            runBlocking(Dispatchers.IO) {
+                kotlinx.coroutines.withTimeout(20_000L) {
+                    YouTube.player(mediaId).getOrThrow()
+                }
             }
         }.getOrElse { throwable ->
             if (throwable is kotlinx.coroutines.TimeoutCancellationException) {
