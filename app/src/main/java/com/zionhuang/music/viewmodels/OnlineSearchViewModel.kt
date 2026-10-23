@@ -49,7 +49,7 @@ val SearchFilterYouTubeData = YouTube.SearchFilter("__ytdapi__")
 
 @HiltViewModel
 class OnlineSearchViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val query = savedStateHandle.get<String>("query")!!

@@ -168,6 +168,7 @@ dependencies {
     implementation(projects.innertube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
+    implementation(projects.jamendo)
 
     implementation(libs.ktor.client.core)
 
