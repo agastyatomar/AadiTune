@@ -93,6 +93,9 @@ FOSS builds contain no Firebase — recommended.
 
 - **No sound / network error:** check regional availability; set a proxy under
   Settings → Content → Proxy.
+- **Live streams:** not playable yet — YouTube requires tokens an unauthenticated
+  client can't produce. NovaTune detects them, shows "Live streams aren't
+  supported yet" and auto-skips to the next song.
 - **App won't build:** ensure JDK **17** and `ANDROID_HOME` set; run
   `./gradlew --stop` and retry.
 - **Offline songs missing:** downloads live in app-private storage;
