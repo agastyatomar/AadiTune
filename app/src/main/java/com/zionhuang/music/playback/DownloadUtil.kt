@@ -149,10 +149,12 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        // Bounded ranges only: the CDN rejects open-ended ranged requests on signed
-        // urls (logcat evidence) and the download spans open again with positions
-        // later in the file, each time with a freshly resolved url.
-        dataSpec.withUri(rangedFormat.url!!.toUri()).subrange(0L, MusicService.CHUNK_LENGTH)
+        // Bounded full-tail range for downloads as well (logcat evidence shows the
+        // CDN rejects open-ended ranges and frequency-caps repeated span opens);
+        // one bounded read fills the download cache completely.
+        val downloadBytes = rangedFormat.contentLength!!
+        val downloadTailBytes = (downloadBytes - dataSpec.position).coerceIn(1L, downloadBytes)
+        dataSpec.withUri(rangedFormat.url!!.toUri()).subrange(0L, downloadTailBytes)
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager = DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {

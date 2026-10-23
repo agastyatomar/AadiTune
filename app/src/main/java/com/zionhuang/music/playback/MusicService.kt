@@ -918,13 +918,18 @@ class MusicService : MediaLibraryService(),
             }
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-            // Stream the FULL remaining file in this single open; no url caching, no
-            // chunking (see notes above).
-            // The CDN accepts BOUNDED ranges only on signed urls (logcat evidence:
-            // probe "bytes=0-1" -> 206, open-ended "bytes=0-" -> 403). Cap every open
-            // to a bounded span; the next span open resolves a FRESH url (line above),
-            // so no spent/one-shot url is ever reused.
-            return dataSpec.withUri(playableFormat.url!!.toUri()).subrange(0L, CHUNK_LENGTH)
+            // Bounded full-tail range: one bounded open covers the WHOLE remaining
+            // file. Logcat evidence at every stage:
+            //   - open-ended "bytes=0-" ranges are rejected with HTTP 403;
+            //   - bounded ranges are accepted (206) but a new open every ~1s
+            //     (the old 512KB span chain) trips the CDN request-frequency cap
+            //     and playback dies around ~1.3MB (~52s of audio).
+            // A single bounded read from the current position to EOF matches one
+            // normal CDN session pattern and plays the COMPLETE song. It also
+            // fully fills the player cache, making the track effectively offline.
+            val contentBytes = playableFormat.contentLength!!
+            val tailBytes = (contentBytes - dataSpec.position).coerceIn(1L, contentBytes)
+            return dataSpec.withUri(playableFormat.url!!.toUri()).subrange(0L, tailBytes)
         }
         throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
     }
