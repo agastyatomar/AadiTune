@@ -47,6 +47,7 @@ import com.zionhuang.innertube.YouTubeDataNotConfiguredException
 import com.zionhuang.music.R
 import com.zionhuang.music.constants.AppBarHeight
 import com.zionhuang.music.constants.SearchFilterHeight
+import com.zionhuang.music.extensions.toMediaItem
 import com.zionhuang.music.extensions.togglePlayPause
 import com.zionhuang.music.models.toMediaMetadata
 import com.zionhuang.music.playback.queues.ListQueue
@@ -164,14 +165,15 @@ fun OnlineSearchResult(
                             } else if (isFreeProviderSong) {
                                 // Play the searched free tracks as a plain sequence; the
                                 // provider's own full-length file is streamed per track.
+                                val queueTitle = stringResource(R.string.queue_searched_songs)
                                 val freeSongs = itemsPage?.items?.filterIsInstance<SongItem>()
                                     .orEmpty()
                                     .ifEmpty { listOf(item) }
                                 val startIndex = freeSongs.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
                                 playerConnection.playQueue(
                                     ListQueue(
-                                        title = stringResource(R.string.queue_searched_songs),
-                                        items = freeSongs.map { it.toMediaMetadata() },
+                                        title = queueTitle,
+                                        items = freeSongs.map { it.toMediaMetadata().toMediaItem() },
                                         startIndex = startIndex
                                     )
                                 )
