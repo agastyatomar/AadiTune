@@ -146,11 +146,10 @@ jobs:
           body: |
             **NovaTune (latest CI build)** — free & open-source music streaming for Android.
 
-            - `NovaTune-VNAME-foss-release-unsigned.apk` is the clean release build.
-              It is **unsigned** (no signing secrets are stored in this repository), so
-              it cannot be sideloaded directly. This is the build to use after adding
-              release signing secrets (`AADITUNE_KEYSTORE*`) to the repository.
-            - `NovaTune-VNAME-foss-debug.apk` is an installable FOSS debug build,
+            - `${{ steps.apk.outputs.apk }}` attaches below as the clean release build.
+              If signing secrets (`AADITUNE_KEYSTORE*`) are set in the repository it is
+              signed and installable; otherwise the same build is published unsigned.
+            - `${{ steps.apkdebug.outputs.apk }}` is an installable FOSS debug build,
               auto-signed by CI with a throwaway debug key (`com.agastyatomar.aaditune.debug`).
               Fine for testing; expect to uninstall before a signed release install.
 
