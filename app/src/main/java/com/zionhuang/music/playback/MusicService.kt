@@ -659,7 +659,7 @@ class MusicService : MediaLibraryService(),
             // Never routed through the YouTube/InnerTube resolution below.
             if (mediaId.startsWith(JAMENDO_MEDIA_ID_PREFIX)) {
                 val streamUrl = runBlocking(Dispatchers.IO) {
-                    Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX))
+                    runCatching { Jamendo.streamUrl(mediaId.removePrefix(JAMENDO_MEDIA_ID_PREFIX)) }
                 }.getOrElse { throwable ->
                     throw PlaybackException(
                         when {
